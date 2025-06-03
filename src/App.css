@@ -1,0 +1,149 @@
+@font-face {
+  font-family: "MorrisRoman";
+  src: url("/MorrisRoman-Black.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  margin: 0;
+  background: #2c1810;
+  color: #ffd700;
+  min-height: 100vh;
+  font-family: "MorrisRoman", serif;
+  background-image: radial-gradient(circle at center, #3c2815 0%, #2c1810 100%);
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.game-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  text-align: center;
+  background: url("/wooden_frame.png") no-repeat center center;
+  background-size: 100% 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 32px;
+}
+
+/* Inner container to provide padding from the frame */
+.game-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 25px;
+}
+
+.game-title {
+  font-size: 2.8em;
+  color: #ffd700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 25px;
+  margin-top: 0;
+}
+
+.welcome-text {
+  font-size: 1.5em;
+  color: #fff;
+  margin-bottom: 35px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.start-button {
+  background: linear-gradient(45deg, #ffd700, #ff8c00);
+  border: 3px solid #8b4513;
+  padding: 12px 35px;
+  font-size: 1.4em;
+  color: #2c1810;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: "MorrisRoman", serif;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(45deg, #ff8c00, #ffd700);
+}
+
+.start-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.user-profile {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(44, 24, 16, 0.8);
+  border-radius: 50%;
+  border: 2px solid #ffd700;
+  padding: 0;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.user-profile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+@media (max-width: 768px) {
+  .game-container {
+    padding: 24px;
+  }
+
+  .game-content {
+    padding: 20px;
+  }
+
+  .game-title {
+    font-size: 2.2em;
+    margin-bottom: 20px;
+  }
+
+  .welcome-text {
+    font-size: 1.3em;
+    margin-bottom: 30px;
+  }
+
+  .start-button {
+    padding: 10px 25px;
+    font-size: 1.2em;
+  }
+
+  .user-profile {
+    top: 12px;
+    right: 12px;
+    width: 35px;
+    height: 35px;
+  }
+}
