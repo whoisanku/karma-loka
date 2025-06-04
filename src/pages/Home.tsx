@@ -1,14 +1,14 @@
-import { SDKUser } from "../App";
+import type { SDKUser } from "../App";
 
 interface HomeProps {
   fcUser: SDKUser | null;
   isLoading: boolean;
+  onBegin: () => void;
 }
 
-export default function Home({ fcUser, isLoading }: HomeProps) {
+export default function Home({ fcUser, isLoading, onBegin }: HomeProps) {
   const handleStartGame = () => {
-    // TODO: Implement game start logic
-    console.log("Starting game...");
+    onBegin();
   };
 
   return (
@@ -22,19 +22,14 @@ export default function Home({ fcUser, isLoading }: HomeProps) {
           "Loading..."
         ) : (
           <>
-            <p>
-              Welcome{" "}
-              {fcUser
-                ? fcUser.displayName || "@" + fcUser.username
-                : "Adventurer"}
-              !
-            </p>
+            <p>Welcome {fcUser ? fcUser.displayName || `@${fcUser.username}` : "Adventurer"}!</p>
             <p>Ready to embark on a magical journey?</p>
           </>
         )}
       </div>
 
       <button
+        type="button"
         onClick={handleStartGame}
         className="px-8 sm:px-12 py-4 sm:py-5 text-xl sm:text-2xl font-normal text-[#2c1810] uppercase rounded-xl
                  bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 

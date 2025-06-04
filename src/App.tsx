@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
-import WoodenFrameLayout from "./layouts/WoodenFrameLayout";
-import Home from "./pages/Home";
 import { sdk } from "@farcaster/frame-sdk";
+import { useEffect, useState } from "react";
+import WoodenFrameLayout from "./layouts/WoodenFrameLayout";
+import Explore from "./pages/Explore";
+import Home from "./pages/Home";
 import "./App.css";
 
 export interface SDKUser {
@@ -14,13 +15,14 @@ export interface SDKUser {
 export default function App() {
   const [fcUser, setFcUser] = useState<SDKUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState<"home" | "explore">("home");
 
   useEffect(() => {
     const initialize = async () => {
       try {
         await sdk.actions.ready();
         const frameContext = await sdk.context;
-        if (frameContext && frameContext.user) {
+        if (frameContext?.user) {
           setFcUser(frameContext.user as SDKUser);
         }
       } catch (error) {
@@ -35,7 +37,11 @@ export default function App() {
 
   return (
     <WoodenFrameLayout fcUser={fcUser}>
-      <Home fcUser={fcUser} isLoading={isLoading} />
+      {page === "home" ? (
+        <Home fcUser={fcUser} isLoading={isLoading} onBegin={() => setPage("explore")} />
+      ) : (
+        <Explore onBack={() => setPage("home")} />
+      )}
     </WoodenFrameLayout>
   );
 }
