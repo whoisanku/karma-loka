@@ -7,26 +7,40 @@ interface Game {
   players: string[];
 }
 
+// Define props for Explore component
+interface ExploreProps {
+  onJoinQuest: () => void;
+}
+
 const sampleGames: Game[] = [
   {
-    id: "Quest #1",
+    id: "Game #1",
     creator: "@royal-sage",
     prize: 25,
     players: ["player1", "player2", "player3"],
   },
   {
-    id: "Quest #2",
+    id: "Game #2",
+    creator: "@wandering-mystic",
+    prize: 40,
+    players: ["playerA"],
+  },
+  {
+    id: "Game #1",
+    creator: "@royal-sage",
+    prize: 25,
+    players: ["player1", "player2", "player3"],
+  },
+  {
+    id: "Game #2",
     creator: "@wandering-mystic",
     prize: 40,
     players: ["playerA"],
   },
 ];
 
-interface ExploreProps {
-  onBack: () => void;
-}
-
-export default function Explore({ onBack }: ExploreProps) {
+// Add onJoinQuest to component props
+export default function Explore({ onJoinQuest }: ExploreProps) {
   const [showForm, setShowForm] = useState(false);
 
   const handleCreate = () => {
@@ -35,16 +49,14 @@ export default function Explore({ onBack }: ExploreProps) {
   };
 
   return (
-    <div className="p-4 mx-auto max-w-xl text-center space-y-6">
-      <h2 className="text-[#ffd700] text-3xl sm:text-4xl font-normal drop-shadow-lg">Ongoing Quests</h2>
-
+    <div className="mx-auto max-w-xl text-center space-y-6">
       {sampleGames.length === 0 ? (
         <p className="text-white">No games found. Create the first quest!</p>
       ) : (
         <div className="space-y-4">
-          {sampleGames.map((game) => (
+          {sampleGames.map((game, index) => (
             <div
-              key={game.id}
+              key={`${game.id}-${index}`}
               className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md"
             >
               <div className="flex justify-between items-center mb-2">
@@ -52,13 +64,45 @@ export default function Explore({ onBack }: ExploreProps) {
                 <span className="text-sm">Prize: {game.prize} USDC</span>
               </div>
               <p className="text-sm mb-1">Creator: {game.creator}</p>
-              <p className="text-sm mb-1">Players: {game.players.join(", ") || "None"}</p>
-              <button
-                type="button"
-                className="mt-2 px-4 py-1 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513]"
-              >
-                Join Quest
-              </button>
+              {/* Player Avatars & Join Button */}
+              <div className="flex justify-between items-center mt-3 mb-1">
+                <div className="flex items-center">
+                  {game.players.length > 0 ? (
+                    <div className="flex -space-x-2">
+                      {" "}
+                      {/* -space-x-2 for overlap */}
+                      {game.players.slice(0, 3).map((player, pIndex) => (
+                        <img
+                          key={pIndex}
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player}`}
+                          alt={player}
+                          title={player}
+                          className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                        />
+                      ))}
+                      {game.players.length > 3 && (
+                        <div
+                          title={`More: ${game.players.slice(3).join(", ")}`}
+                          className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
+                        >
+                          +{game.players.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">
+                      No players yet
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={onJoinQuest}
+                  className="px-4 py-1 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300"
+                >
+                  Join Quest
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -84,14 +128,6 @@ export default function Explore({ onBack }: ExploreProps) {
           Create Game
         </button>
       )}
-
-      <button
-        type="button"
-        onClick={onBack}
-        className="block mx-auto mt-4 px-6 py-2 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513]"
-      >
-        Back
-      </button>
     </div>
   );
 }
