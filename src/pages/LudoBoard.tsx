@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Dice from "../components/Dice";
 
 interface Player {
   id: string;
@@ -55,14 +56,24 @@ const LudoBoard: React.FC = () => {
   const players = generatePlayers();
   const snakedCells = generateSnakedCells();
 
+  const [diceValue, setDiceValue] = useState<number>(1);
+  const [isRolling, setIsRolling] = useState<boolean>(false);
+
   const getPlayerInCell = (displayedCellNumber: number) => {
     return players.find((p) => p.position === displayedCellNumber);
   };
 
+  const handleDiceRollComplete = (rolledValue: number) => {
+    setDiceValue(rolledValue);
+    setIsRolling(false);
+    console.log("Dice rolled:", rolledValue);
+    // TODO: Update player position based on rolledValue
+  };
+
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden flex flex-col bg-[#0d0805]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 bg-[#1a0f09] border-b-2 border-[#8b4513]">
+      <div className="flex items-center justify-between px-6 py-3 bg-[#1a0f09] border-b-2 border-[#8b4513] shadow-md z-10 flex-shrink-0">
         <button
           onClick={() => navigate("/explore")}
           className="text-[#ffd700] hover:text-[#ffed4a] transition-colors duration-300 flex items-center"
@@ -87,10 +98,11 @@ const LudoBoard: React.FC = () => {
         <div className="w-16"></div>
       </div>
 
-      {/* Board container */}
-      <div className="absolute inset-0 top-[3.25rem] flex items-center justify-center p-2">
-        <div className="relative w-full aspect-square">
-          <div className="absolute inset-0 bg-[#1a0f09] border border-[#8b4513]">
+      {/* Main Game Area (Board + Dice) - This area will be the relative parent for the dice */}
+      <div className="flex-grow relative flex items-center justify-center p-4">
+        {/* Board container - Centered */}
+        <div className="relative w-full aspect-square max-w-xl">
+          <div className="absolute inset-0 bg-[#1a0f09] border-2 border-[#8b4513]">
             <div className="grid grid-cols-10 gap-[1px] w-full h-full">
               {snakedCells.map((displayedNumber, index) => {
                 const playerInCell = getPlayerInCell(displayedNumber);
@@ -102,16 +114,16 @@ const LudoBoard: React.FC = () => {
                       backgroundColor: index % 2 === 0 ? "#2c1810" : "#3b2010",
                     }}
                   >
-                    <span className="absolute top-1 left-1 p-0.5 text-gray-400/70 text-[12px]">
+                    <span className="absolute top-1 left-1 p-0.5 text-gray-400/70 text-[10px] md:text-[12px]">
                       {displayedNumber}
                     </span>
                     {playerInCell && (
-                      <div className="absolute inset-0 flex items-end justify-end p-1">
+                      <div className="absolute inset-0 flex items-end justify-end p-0.5 md:p-1">
                         <img
                           src={playerInCell.avatarUrl}
                           alt={playerInCell.id}
                           title={`${playerInCell.id} (Pos: ${playerInCell.position})`}
-                          className="w-2/4 h-2/4 rounded-full border border-[#8b4513] object-cover bg-gray-700 transform transition-transform duration-300"
+                          className="w-2/3 h-2/3 md:w-3/4 md:h-3/4 rounded-full border border-[#8b4513] object-cover bg-gray-700"
                         />
                       </div>
                     )}
@@ -120,6 +132,16 @@ const LudoBoard: React.FC = () => {
               })}
             </div>
           </div>
+        </div>
+
+        {/* Dice Area - Positioned bottom right of the Main Game Area */}
+        <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-20">
+          <Dice
+            onRollComplete={handleDiceRollComplete}
+            isParentRolling={isRolling}
+            setParentIsRolling={setIsRolling}
+            initialValue={diceValue}
+          />
         </div>
       </div>
     </div>
