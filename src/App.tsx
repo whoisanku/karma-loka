@@ -11,6 +11,7 @@ import WoodenFrameLayout from "./components/Layout/WoodenFrameLayout";
 import ExplorePage from "./features/Explore/ExplorePage";
 import HomePage from "./features/Home/HomePage";
 import LudoPage from "./features/Ludo/LudoPage";
+import CreateGamePage from "./features/CreateGame/CreateGamePage";
 import "./styles/global.css";
 import type { SDKUser } from "./types";
 
@@ -216,6 +217,15 @@ function AppContent() {
           />
         }
       />
+      <Route
+        path="/create"
+        element={
+          <CreateGamePage
+            fcUser={fcUser}
+            handleButtonClick={handleButtonClick}
+          />
+        }
+      />
       <Route path="/game1" element={<LudoPage />} />
       <Route path="/game2" element={<LudoPage />} />{" "}
       {/* Example, could be another game type */}
@@ -239,7 +249,9 @@ function AppContent() {
         title={
           location.pathname === "/explore"
             ? "Choose Your Quest"
-            : "Mystic Paths"
+            : location.pathname === "/create"
+              ? "Host New Quest"
+              : "Mystic Paths"
         }
       >
         {routeContent}

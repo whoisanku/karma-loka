@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 interface Game {
@@ -43,29 +44,31 @@ export default function ExplorePage({
   onJoinQuest,
   handleButtonClick,
 }: ExplorePageProps) {
-  const [showForm, setShowForm] = useState(false);
-
-  const handleCreateGameClick = () => {
-    handleButtonClick();
-    setShowForm(false);
-  };
+  const navigate = useNavigate();
+  const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
 
   const handleShowFormClick = () => {
     handleButtonClick();
-    setShowForm(true);
+    navigate("/create");
   };
 
   const handleJoinQuestClick = () => {
     handleButtonClick();
-    onJoinQuest();
+    setIsConfirmJoinModalOpen(true);
+  };
+
+  const handleProceedToGame = () => {
+    handleButtonClick();
+    navigate("/game1");
+    setIsConfirmJoinModalOpen(false);
   };
 
   return (
-    <div className="mx-auto max-w-xl text-center space-y-6 pb-20">
-      {sampleGames.length === 0 && !showForm ? (
+    <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
+      {sampleGames.length === 0 ? (
         <p className="text-white">No games found. Create the first quest!</p>
       ) : null}
-      {!showForm && sampleGames.length > 0 && (
+      {sampleGames.length > 0 && (
         <div className="space-y-4">
           {sampleGames.map((game, index) => (
             <div
@@ -110,7 +113,7 @@ export default function ExplorePage({
                   onClick={handleJoinQuestClick}
                   className="px-4 py-1 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300"
                 >
-                  Join Quest
+                  Join
                 </button>
               </div>
             </div>
@@ -118,42 +121,81 @@ export default function ExplorePage({
         </div>
       )}
 
-      {showForm ? (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
-          <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-6 text-white space-y-4 shadow-xl max-w-md w-full">
-            <h2 className="text-2xl text-[#ffd700] mb-4">Create New Game</h2>
-            <p>Game creation feature is coming soon!</p>
+      <button
+        type="button"
+        onClick={handleShowFormClick}
+        className="fixed bottom-8 right-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
+        title="Create Game"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth="2.5"
+          stroke="currentColor"
+          className="w-8 h-8"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
+        </svg>
+      </button>
+
+      {/* Confirmation Join Modal */}
+      {isConfirmJoinModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-black/80 to-[#2c1810]/90"
+            onClick={() => setIsConfirmJoinModalOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-[90%] max-w-[320px] bg-[#2c1810] border-4 border-[#8b4513] rounded-xl p-6 text-center">
+            {/* Close Button for Modal */}
+            <button
+              onClick={() => setIsConfirmJoinModalOpen(false)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-[#2c1810] border-2 border-[#ffd700] 
+                       flex items-center justify-center text-[#ffd700] hover:text-[#ff8c00] 
+                       hover:border-[#ff8c00] transition-colors shadow-lg"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            <h2 className="text-[#ffd700] text-xl mb-6 font-['MorrisRoman']">
+              Confirm Join
+            </h2>
+
+            <p className="text-white text-sm mb-6">
+              Are you sure you want to proceed to this quest?
+            </p>
+
             <button
               type="button"
-              onClick={handleCreateGameClick}
-              className="w-full mt-4 px-6 py-2 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300"
+              onClick={handleProceedToGame}
+              className="w-full px-6 py-2.5 text-sm font-normal text-[#2c1810] uppercase rounded-lg
+                         bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 
+                         border-2 border-[#8b4513] shadow-lg
+                         transform transition-all duration-300 hover:-translate-y-1
+                         hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]"
             >
-              Close
+              Proceed to Game
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={handleShowFormClick}
-          className="fixed bottom-8 right-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
-          title="Create Game"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2.5"
-            stroke="currentColor"
-            className="w-8 h-8"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 4.5v15m7.5-7.5h-15"
-            />
-          </svg>
-        </button>
       )}
     </div>
   );

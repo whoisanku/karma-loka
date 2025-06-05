@@ -14,7 +14,7 @@ export default function ProfileModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 w-[400px] flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Themed backdrop */}
       <div
         className="absolute inset-0 bg-gradient-to-b from-black/80 to-[#2c1810]/90"
