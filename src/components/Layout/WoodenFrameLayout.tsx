@@ -1,102 +1,41 @@
-import { ReactNode, useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import ProfileModal from "../components/ProfileModal";
-import SettingsModal from "../components/SettingsModal";
-import { SDKUser } from "../App";
+import { ReactNode, useState } from "react";
+import ProfileModal from "../Modal/ProfileModal";
+import SettingsModal from "../Modal/SettingsModal";
+import type { SDKUser } from "../../types";
 
 interface WoodenFrameLayoutProps {
   children: ReactNode;
   fcUser: SDKUser | null;
   title?: string;
+  handleButtonClick: () => void;
+  isMuted: boolean;
+  toggleSound: () => void;
+  isButtonSoundEnabled: boolean;
+  toggleButtonSound: () => void;
 }
-
-const LOCAL_STORAGE_MUTED_KEY = "karmaLoka_isMuted";
-const LOCAL_STORAGE_BUTTON_SOUND_KEY = "karmaLoka_isButtonSoundEnabled";
 
 export default function WoodenFrameLayout({
   children,
   fcUser,
   title,
+  handleButtonClick,
+  isMuted,
+  toggleSound,
+  isButtonSoundEnabled,
+  toggleButtonSound,
 }: WoodenFrameLayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const location = useLocation();
-
-  // Initialize state from localStorage or defaults
-  const [isMuted, setIsMuted] = useState(() => {
-    const storedMuted = localStorage.getItem(LOCAL_STORAGE_MUTED_KEY);
-    return storedMuted ? JSON.parse(storedMuted) : false; // Default to not muted
-  });
-  const [isButtonSoundEnabled, setIsButtonSoundEnabled] = useState(() => {
-    const storedButtonSound = localStorage.getItem(
-      LOCAL_STORAGE_BUTTON_SOUND_KEY
-    );
-    return storedButtonSound ? JSON.parse(storedButtonSound) : true; // Default to button sounds enabled
-  });
-
-  const welcomeAudioRef = useRef<HTMLAudioElement | null>(null);
-  const buttonClickRef = useRef<HTMLAudioElement | null>(null);
-
-  // Effect to persist sound settings to localStorage
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_MUTED_KEY, JSON.stringify(isMuted));
-  }, [isMuted]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      LOCAL_STORAGE_BUTTON_SOUND_KEY,
-      JSON.stringify(isButtonSoundEnabled)
-    );
-  }, [isButtonSoundEnabled]);
-
-  // Play welcome sound on mount and handle looping based on isMuted state
-  useEffect(() => {
-    if (welcomeAudioRef.current) {
-      if (!isMuted) {
-        welcomeAudioRef.current.loop = true;
-        welcomeAudioRef.current.play().catch(console.error);
-      } else {
-        welcomeAudioRef.current.pause();
-        // welcomeAudioRef.current.currentTime = 0; // Resetting currentTime here might be too aggressive
-      }
-    }
-    // Cleanup function to pause sound when component unmounts or isMuted changes to true
-    return () => {
-      if (welcomeAudioRef.current) {
-        welcomeAudioRef.current.pause();
-        // welcomeAudioRef.current.currentTime = 0; // Also consider if this is needed or not
-      }
-    };
-  }, [isMuted]); // Rerun when isMuted changes
-
-  const toggleSound = () => {
-    setIsMuted((prevMuted: boolean) => !prevMuted);
-    // Audio play/pause logic is now handled by the useEffect listening to isMuted
-  };
-
-  const toggleButtonSound = () => {
-    setIsButtonSoundEnabled((prev: boolean) => !prev);
-  };
-
-  const handleButtonClick = () => {
-    if (isButtonSoundEnabled && buttonClickRef.current) {
-      buttonClickRef.current.currentTime = 0;
-      buttonClickRef.current.play().catch(console.error);
-    }
-  };
 
   return (
     <div className="w-full h-[100dvh] bg-[#2c1810] font-['MorrisRoman'] flex flex-col">
-      <audio ref={welcomeAudioRef} src="/welcome_instrumental.mp3" />
-      <audio ref={buttonClickRef} src="/button_click_instrumental.mp3" />
-
       {/* This div applies the wooden frame and padding */}
       <div
         className="flex-grow bg-no-repeat bg-cover bg-center m-0 sm:m-4 overflow-hidden"
         style={{
           backgroundImage: "url('/wooden_frame.png')",
           backgroundSize: "100% 100%",
-          padding: "2rem",
+          padding: "2rem", // Adjusted padding
         }}
       >
         <div className="h-full flex flex-col">

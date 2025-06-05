@@ -7,9 +7,9 @@ interface Game {
   players: string[];
 }
 
-// Define props for Explore component
-interface ExploreProps {
+interface ExplorePageProps {
   onJoinQuest: () => void;
+  handleButtonClick: () => void;
 }
 
 const sampleGames: Game[] = [
@@ -39,20 +39,33 @@ const sampleGames: Game[] = [
   },
 ];
 
-// Add onJoinQuest to component props
-export default function Explore({ onJoinQuest }: ExploreProps) {
+export default function ExplorePage({
+  onJoinQuest,
+  handleButtonClick,
+}: ExplorePageProps) {
   const [showForm, setShowForm] = useState(false);
 
-  const handleCreate = () => {
-    // placeholder for create logic
+  const handleCreateGameClick = () => {
+    handleButtonClick();
     setShowForm(false);
   };
 
+  const handleShowFormClick = () => {
+    handleButtonClick();
+    setShowForm(true);
+  };
+
+  const handleJoinQuestClick = () => {
+    handleButtonClick();
+    onJoinQuest();
+  };
+
   return (
-    <div className="mx-auto max-w-xl text-center space-y-6">
-      {sampleGames.length === 0 ? (
+    <div className="mx-auto max-w-xl text-center space-y-6 pb-20">
+      {sampleGames.length === 0 && !showForm ? (
         <p className="text-white">No games found. Create the first quest!</p>
-      ) : (
+      ) : null}
+      {!showForm && sampleGames.length > 0 && (
         <div className="space-y-4">
           {sampleGames.map((game, index) => (
             <div
@@ -64,13 +77,10 @@ export default function Explore({ onJoinQuest }: ExploreProps) {
                 <span className="text-sm">Prize: {game.prize} USDC</span>
               </div>
               <p className="text-sm mb-1">Creator: {game.creator}</p>
-              {/* Player Avatars & Join Button */}
               <div className="flex justify-between items-center mt-3 mb-1">
                 <div className="flex items-center">
                   {game.players.length > 0 ? (
                     <div className="flex -space-x-2">
-                      {" "}
-                      {/* -space-x-2 for overlap */}
                       {game.players.slice(0, 3).map((player, pIndex) => (
                         <img
                           key={pIndex}
@@ -97,7 +107,7 @@ export default function Explore({ onJoinQuest }: ExploreProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={onJoinQuest}
+                  onClick={handleJoinQuestClick}
                   className="px-4 py-1 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300"
                 >
                   Join Quest
@@ -109,23 +119,40 @@ export default function Explore({ onJoinQuest }: ExploreProps) {
       )}
 
       {showForm ? (
-        <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white space-y-3 shadow-md">
-          <p>Game creation coming soon...</p>
-          <button
-            type="button"
-            onClick={handleCreate}
-            className="px-6 py-1 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513]"
-          >
-            Close
-          </button>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
+          <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-6 text-white space-y-4 shadow-xl max-w-md w-full">
+            <h2 className="text-2xl text-[#ffd700] mb-4">Create New Game</h2>
+            <p>Game creation feature is coming soon!</p>
+            <button
+              type="button"
+              onClick={handleCreateGameClick}
+              className="w-full mt-4 px-6 py-2 text-sm font-normal text-[#2c1810] uppercase rounded-md bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300"
+            >
+              Close
+            </button>
+          </div>
         </div>
       ) : (
         <button
           type="button"
-          onClick={() => setShowForm(true)}
-          className="px-8 py-2 text-lg font-normal text-[#2c1810] uppercase rounded-xl bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] shadow-lg"
+          onClick={handleShowFormClick}
+          className="fixed bottom-8 right-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
+          title="Create Game"
         >
-          Create Game
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2.5"
+            stroke="currentColor"
+            className="w-8 h-8"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4.5v15m7.5-7.5h-15"
+            />
+          </svg>
         </button>
       )}
     </div>

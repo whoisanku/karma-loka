@@ -4,9 +4,9 @@ import ReactDOM from "react-dom/client";
 import { WagmiProvider } from "wagmi";
 
 import App from "./App.tsx";
-import { config } from "./wagmi.ts";
+import { config } from "./config/wagmi.ts";
 
-import "./index.css";
+import "./styles/global.css";
 
 const queryClient = new QueryClient();
 

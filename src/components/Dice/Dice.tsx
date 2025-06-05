@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import "./Dice.css"; // Import the CSS
+import styles from "./Dice.module.css"; // Import CSS Modules object
 
 interface DiceProps {
   onRollComplete: (value: number) => void;
@@ -27,7 +27,7 @@ const Dice: React.FC<DiceProps> = ({
     useState<number>(initialValue);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  console.log("[Dice.tsx] Render/Re-render. isParentRolling:", isParentRolling);
+  // console.log("[Dice.tsx] Render/Re-render. isParentRolling:", isParentRolling);
 
   const onRollCompleteRef = useRef(onRollComplete);
   useEffect(() => {
@@ -48,40 +48,55 @@ const Dice: React.FC<DiceProps> = ({
   }, [soundSrc]);
 
   const performRoll = useCallback(() => {
-    console.log(
-      "[Dice.tsx] performRoll called. Current isParentRolling prop:",
-      isParentRolling
-    );
+    // console.log(
+    //   "[Dice.tsx] performRoll called. Current isParentRolling prop:",
+    //   isParentRolling
+    // );
     if (!dieRef.current || isParentRolling) {
-      console.log(
-        "[Dice.tsx] performRoll: bailing, dieRef.current:",
-        !!dieRef.current,
-        "isParentRolling:",
-        isParentRolling
-      );
+      // console.log(
+      //   "[Dice.tsx] performRoll: bailing, dieRef.current:",
+      //   !!dieRef.current,
+      //   "isParentRolling:",
+      //   isParentRolling
+      // );
       return;
     }
 
-    console.log("[Dice.tsx] performRoll: proceeding to roll.");
+    // console.log("[Dice.tsx] performRoll: proceeding to roll.");
     setParentIsRolling(true);
     playSound(); // Play the sound effect
 
     const dieElement = dieRef.current;
-    const isCurrentlyOdd = dieElement.classList.contains("odd-roll");
-    dieElement.classList.remove(isCurrentlyOdd ? "odd-roll" : "even-roll");
-    dieElement.classList.add(isCurrentlyOdd ? "even-roll" : "odd-roll");
+    // Use CSS module class names
+    const isCurrentlyOdd = dieElement.classList.contains(styles["odd-roll"]);
+    dieElement.classList.remove(
+      isCurrentlyOdd ? styles["odd-roll"] : styles["even-roll"]
+    );
+    dieElement.classList.add(
+      isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
+    );
 
     const roll = getRandomNumber(1, 6);
     dieElement.dataset.roll = roll.toString();
-  }, [isParentRolling, setParentIsRolling, playSound]);
+
+    // Call onRollComplete after animation duration
+    // This timeout should roughly match the CSS animation duration
+    // The animations are 1.5s and 1.25s. We take the max.
+    setTimeout(() => {
+      setCurrentDisplayValue(roll);
+      onRollCompleteRef.current(roll);
+      setParentIsRolling(false); // Set rolling to false after completion
+    }, 1500);
+  }, [isParentRolling, setParentIsRolling, playSound, styles]); // Added styles to dependency array
 
   useEffect(() => {
     setCurrentDisplayValue(initialValue);
     if (dieRef.current) {
       dieRef.current.dataset.roll = initialValue.toString();
-      dieRef.current.classList.remove("odd-roll", "even-roll");
+      // Ensure CSS module classes are removed if they were somehow added initially
+      dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
     }
-  }, [initialValue]);
+  }, [initialValue, styles]); // Added styles to dependency array
 
   const faces = [
     { side: 1, dots: 1 },
@@ -94,7 +109,7 @@ const Dice: React.FC<DiceProps> = ({
 
   return (
     <div
-      className="dice"
+      className={styles.dice} // Use CSS module class name
       onClick={performRoll}
       style={{
         cursor: isParentRolling ? "not-allowed" : "pointer",
@@ -108,18 +123,18 @@ const Dice: React.FC<DiceProps> = ({
       }
     >
       <ul
-        className="die-list"
+        className={styles["die-list"]} // Use CSS module class name (bracket notation for hyphenated)
         ref={dieRef}
         data-roll={currentDisplayValue.toString()}
       >
         {faces.map((face) => (
           <li
-            className="die-item"
+            className={styles["die-item"]} // Use CSS module class name
             data-side={face.side.toString()}
             key={face.side}
           >
             {Array.from({ length: face.dots }).map((_, i) => (
-              <span className="dot" key={i}></span>
+              <span className={styles.dot} key={i}></span> // Use CSS module class name
             ))}
           </li>
         ))}

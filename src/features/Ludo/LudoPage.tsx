@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Dice from "../components/Dice";
+import Dice from "../../components/Dice/Dice";
 
 interface Player {
   id: string;
   avatarUrl: string;
-  position: number; // Cell number from 1 to 100, matches displayed number
+  position: number;
 }
 
-const PLAYER_SEEDS = ["player1", "player2", "player3", "playerA"]; // From Explore.tsx
+const PLAYER_SEEDS = ["player1", "player2", "player3", "playerA"];
 
 const generatePlayers = (): Player[] => {
   const usedPositions = new Set<number>();
@@ -22,27 +22,23 @@ const generatePlayers = (): Player[] => {
     return {
       id: seed,
       avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`,
-      position: randomPosition, // This position will match the displayed number
+      position: randomPosition,
     };
   });
 };
 
-// Generates cell numbers: 1 at bottom-left, 100 at top-left, snaking
 const generateSnakedCells = (): number[] => {
   const rows = 10;
   const cols = 10;
   const cells: number[] = new Array(rows * cols).fill(0);
 
   for (let visualRow = 0; visualRow < rows; visualRow++) {
-    // visualRow 0 is bottom
     for (let col = 0; col < cols; col++) {
       const cellValue = visualRow * cols + col + 1;
       let displayCol = col;
       if (visualRow % 2 !== 0) {
-        // Odd visual rows (0-indexed from bottom) go right-to-left
         displayCol = cols - 1 - col;
       }
-      // Calculate actual grid index (0-99, top-to-bottom, left-to-right)
       const actualGridRow = rows - 1 - visualRow;
       const indexInGrid = actualGridRow * cols + displayCol;
       cells[indexInGrid] = cellValue;
@@ -51,7 +47,7 @@ const generateSnakedCells = (): number[] => {
   return cells;
 };
 
-const LudoBoard: React.FC = () => {
+const LudoPage: React.FC = () => {
   const navigate = useNavigate();
   const players = generatePlayers();
   const snakedCells = generateSnakedCells();
@@ -66,13 +62,12 @@ const LudoBoard: React.FC = () => {
   const handleDiceRollComplete = (rolledValue: number) => {
     setDiceValue(rolledValue);
     setIsRolling(false);
-    console.log("Dice rolled:", rolledValue);
+    // console.log("Dice rolled:", rolledValue); // Retain this for now if useful for dev
     // TODO: Update player position based on rolledValue
   };
 
   return (
     <div className="fixed inset-0 overflow-hidden flex flex-col bg-[#0d0805]">
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-3 bg-[#1a0f09] border-b-2 border-[#8b4513] shadow-md z-10 flex-shrink-0">
         <button
           onClick={() => navigate("/explore")}
@@ -98,9 +93,7 @@ const LudoBoard: React.FC = () => {
         <div className="w-16"></div>
       </div>
 
-      {/* Main Game Area (Board + Dice) - This area will be the relative parent for the dice */}
       <div className="flex-grow relative flex items-center justify-center p-4">
-        {/* Board container - Centered */}
         <div className="relative w-full aspect-square max-w-xl">
           <div className="absolute inset-0 bg-[#1a0f09] border-2 border-[#8b4513]">
             <div className="grid grid-cols-10 gap-[1px] w-full h-full">
@@ -134,7 +127,6 @@ const LudoBoard: React.FC = () => {
           </div>
         </div>
 
-        {/* Dice Area - Positioned bottom right of the Main Game Area */}
         <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-20">
           <Dice
             onRollComplete={handleDiceRollComplete}
@@ -148,4 +140,4 @@ const LudoBoard: React.FC = () => {
   );
 };
 
-export default LudoBoard;
+export default LudoPage;

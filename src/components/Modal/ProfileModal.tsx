@@ -1,4 +1,4 @@
-import { SDKUser } from "../App";
+import type { SDKUser } from "../../types";
 
 interface ProfileModalProps {
   isOpen: boolean;

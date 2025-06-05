@@ -1,13 +1,20 @@
-import type { SDKUser } from "../App";
+import type { SDKUser } from "../../types";
 
 interface HomeProps {
   fcUser: SDKUser | null;
   isLoading: boolean;
   onBegin: () => void;
+  handleButtonClick: () => void;
 }
 
-export default function Home({ fcUser, isLoading, onBegin }: HomeProps) {
+export default function HomePage({
+  fcUser,
+  isLoading,
+  onBegin,
+  handleButtonClick,
+}: HomeProps) {
   const handleStartGame = () => {
+    handleButtonClick();
     onBegin();
   };
 
@@ -22,7 +29,13 @@ export default function Home({ fcUser, isLoading, onBegin }: HomeProps) {
           "Loading..."
         ) : (
           <>
-            <p>Welcome {fcUser ? fcUser.displayName || `@${fcUser.username}` : "Adventurer"}!</p>
+            <p>
+              Welcome{" "}
+              {fcUser
+                ? fcUser.displayName || `@${fcUser.username}`
+                : "Adventurer"}
+              !
+            </p>
             <p>Ready to embark on a magical journey?</p>
           </>
         )}
