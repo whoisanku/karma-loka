@@ -40,10 +40,7 @@ const sampleGames: Game[] = [
   },
 ];
 
-export default function ExplorePage({
-  onJoinQuest,
-  handleButtonClick,
-}: ExplorePageProps) {
+export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
 
@@ -59,7 +56,7 @@ export default function ExplorePage({
 
   const handleProceedToGame = () => {
     handleButtonClick();
-    navigate("/game1");
+    navigate("/game/snakes-and-ladders");
     setIsConfirmJoinModalOpen(false);
   };
 

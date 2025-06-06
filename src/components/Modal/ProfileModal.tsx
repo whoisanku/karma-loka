@@ -1,4 +1,6 @@
 import type { SDKUser } from "../../types";
+import { useAccount } from "wagmi";
+import { useState } from "react";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -11,7 +13,23 @@ export default function ProfileModal({
   onClose,
   fcUser,
 }: ProfileModalProps) {
+  const { address } = useAccount();
+  const [isCopied, setIsCopied] = useState(false);
+
   if (!isOpen) return null;
+
+  const truncateAddress = (addr: string | undefined) => {
+    if (!addr) return "";
+    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  };
+
+  const handleCopyAddress = () => {
+    if (address) {
+      navigator.clipboard.writeText(address);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -62,6 +80,34 @@ export default function ProfileModal({
 
         {/* Profile Content */}
         <div className="mt-10 text-center">
+          {address && (
+            <div className="flex items-center justify-center space-x-2 text-white text-xs mb-4">
+              <span>{truncateAddress(address)}</span>
+              <button
+                onClick={handleCopyAddress}
+                className="text-[#ffd700] hover:text-white focus:outline-none"
+              >
+                {isCopied ? (
+                  <span className="text-green-400">Copied!</span>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25V3.493c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
           <h2 className="text-[#ffd700] text-xl mb-4 font-['MorrisRoman']">
             Adventurer Profile
           </h2>

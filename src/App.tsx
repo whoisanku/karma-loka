@@ -10,7 +10,7 @@ import {
 import WoodenFrameLayout from "./components/Layout/WoodenFrameLayout";
 import ExplorePage from "./features/Explore/ExplorePage";
 import HomePage from "./features/Home/HomePage";
-import LudoPage from "./features/Ludo/LudoPage";
+import SnakesAndLaddersPage from "./features/SnakesAndLadders/SnakesAndLaddersPage";
 import CreateGamePage from "./features/CreateGame/CreateGamePage";
 import "./styles/global.css";
 import type { SDKUser } from "./types";
@@ -211,7 +211,6 @@ function AppContent() {
           <ExplorePage
             onJoinQuest={() => {
               handleButtonClick();
-              navigate("/game1"); // Example game route
             }}
             handleButtonClick={handleButtonClick}
           />
@@ -226,9 +225,10 @@ function AppContent() {
           />
         }
       />
-      <Route path="/game1" element={<LudoPage />} />
-      <Route path="/game2" element={<LudoPage />} />{" "}
-      {/* Example, could be another game type */}
+      <Route
+        path="/game/snakes-and-ladders"
+        element={<SnakesAndLaddersPage />}
+      />
     </Routes>
   );
 
