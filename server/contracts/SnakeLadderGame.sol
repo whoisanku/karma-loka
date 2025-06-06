@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -91,7 +91,7 @@ contract SnakeGame {
         newRoom.players.push(msg.sender);
         newRoom.hasJoined[msg.sender] = true;
         newRoom.positions[msg.sender] = 1;
-        newRoom.lastRollSlot[msg.sender] = 0;
+        newRoom.lastRollSlot[msg.sender] = type(uint256).max;
 
         emit RoomCreated(roomCount, msg.sender);
     }
@@ -106,7 +106,7 @@ contract SnakeGame {
         room.players.push(msg.sender);
         room.hasJoined[msg.sender] = true;
         room.positions[msg.sender] = 1;
-        room.lastRollSlot[msg.sender] = 0;
+        room.lastRollSlot[msg.sender] = type(uint256).max;
 
         emit Participated(roomId, msg.sender);
 
@@ -135,7 +135,7 @@ contract SnakeGame {
         require(room.winner == address(0), "Game over");
 
         uint256 currentSlot = getCurrentSlot(room);
-        require(room.lastRollSlot[msg.sender] < currentSlot, "Already rolled this slot");
+        require(room.lastRollSlot[msg.sender] < currentSlot || room.lastRollSlot[msg.sender] == type(uint256).max, "Roll not allowed in current slot");
 
         uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender))) % 6 + 1);
         uint8 bonus = room.prasadMeter[msg.sender] / 10;
