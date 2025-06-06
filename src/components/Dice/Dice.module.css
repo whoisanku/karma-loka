@@ -3,7 +3,7 @@
   display: grid;
   justify-items: center;
   perspective: 400px;
-  border: 2px solid #8b4513;
+  /* border: 2px solid #8b4513; */
   border-radius: 8px;
   padding: 0.5rem;
   background-color: rgba(26, 15, 9, 0.5);
