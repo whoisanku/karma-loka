@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PiUsersFill, PiUsersThreeFill, PiUsersFourFill } from "react-icons/pi";
 import type { SDKUser } from "../../types";
+import { 
+  useAccount, 
+  useWriteContract, 
+  useWaitForTransactionReceipt 
+} from 'wagmi';
+import { parseUnits } from 'viem';
+import snakeGameContractInfo from '../../constants/snakeGameContractInfo.json';
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -17,6 +24,24 @@ export default function CreateGamePage({
   const [prizeAmount, setPrizeAmount] = useState<number | string>("");
   const [selectedPlayers, setSelectedPlayers] = useState<number>(4);
 
+  const { isConnected } = useAccount(); // Removed unused userAddress
+
+  const {
+    data: transactionHash, // This will store the transaction hash
+    error: writeError,
+    isPending: isSendingTransaction, // True when waiting for wallet confirmation
+    writeContractAsync
+  } = useWriteContract();
+
+  const {
+    isLoading: isConfirmingTransaction, // True when waiting for the transaction to be mined
+    isSuccess: isTransactionConfirmed,
+    error: receiptError,
+    data: receiptData // Transaction receipt
+  } = useWaitForTransactionReceipt({
+    hash: transactionHash,
+  });
+
   const defaultRoomName = fcUser
     ? `${fcUser.username}\'s room`
     : "Adventurer\'s room";
@@ -27,17 +52,53 @@ export default function CreateGamePage({
     // If the user clears the input, the placeholder will show the default name.
   }, [fcUser]);
 
-  const handleCreateGame = () => {
-    // Logic to create the game will go here
-    console.log({
-      name: gameName || defaultRoomName,
-      prize: Number(prizeAmount),
-      players: selectedPlayers,
-    });
-    handleButtonClick();
-    // Navigate to the game room or back to explore page after creation
-    navigate("/explore"); // Or to a new game lobby page
+  const handleCreateGame = async () => {
+    if (!isConnected) {
+      console.error('Wallet not connected');
+      // You might want to trigger a connection flow here or show a message
+      alert('Please connect your wallet.');
+      return;
+    }
+
+    if (!writeContractAsync) {
+      console.error('writeContractAsync is not available. Wallet might not be ready or wagmi setup issue.');
+      alert('Cannot create room: Wallet interaction function is not ready.');
+      return;
+    }
+
+    // IMPORTANT: ERC20 Approval Flow Reminder
+    // Ensure the user has approved the SnakeLadderGame contract to spend the stakeToken.
+    // This should be handled before this point, possibly with another button/step.
+
+    try {
+      handleButtonClick(); // For UI feedback like sound
+      // Arguments are passed directly to writeContractAsync
+      await writeContractAsync({
+        address: snakeGameContractInfo.address as `0x${string}`,
+        abi: snakeGameContractInfo.abi,
+        functionName: 'createRoom',
+        args: [
+          BigInt(selectedPlayers),
+          prizeAmount && Number(prizeAmount) > 0
+            ? parseUnits(prizeAmount.toString(), 6) // Assuming 6 decimals for USDC
+            : BigInt(0) // Should be caught by button disabled state
+        ],
+      });
+      // transactionHash will be set by the hook if successful
+      // console.log('Transaction submitted, hash will be available in transactionHash state');
+      // Navigation will happen after confirmation (see useEffect below) or can be triggered here if preferred
+    } catch (err) {
+      console.error('Error sending create room transaction:', err);
+      // Error will also be reflected in `sendError` from useContractWrite
+    }
   };
+
+  useEffect(() => {
+    if (isTransactionConfirmed) {
+      console.log('Transaction confirmed! Receipt:', receiptData, 'Navigating...');
+      navigate("/explore");
+    }
+  }, [isTransactionConfirmed, navigate, receiptData]);
 
   const handleCancel = () => {
     handleButtonClick();
@@ -134,15 +195,27 @@ export default function CreateGamePage({
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 pt-4">
+          {/* Wagmi specific status messages */}
+          {!isConnected && <p className="text-orange-400">Please connect your wallet to create a quest.</p>}
+          {isSendingTransaction && <p className="text-yellow-400">Sending transaction... (Check Wallet)</p>}
+          {isConfirmingTransaction && transactionHash && <p className="text-yellow-400">Confirming transaction: {transactionHash.substring(0,10)}...</p>}
+          {isTransactionConfirmed && transactionHash && <p className="text-green-500">Quest created successfully! Tx: {transactionHash.substring(0,10)}...</p>}
+          
+          {(writeError || receiptError) && (
+            <p className="text-red-500">
+              Error: {writeError?.message || receiptError?.message}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={handleCreateGame}
+            disabled={!isConnected || !writeContractAsync || isSendingTransaction || isConfirmingTransaction || !prizeAmount || Number(prizeAmount) <= 0}
             className="w-full px-6 py-2.5 text-sm font-normal text-[#2c1810] uppercase rounded-md 
                        bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 
                        border-2 border-[#8b4513] shadow-md
                        hover:from-[#ffed4a] hover:to-[#ffa500] transition-colors duration-300
                        disabled:opacity-50"
-            disabled={!prizeAmount || Number(prizeAmount) <= 0}
           >
             Create Quest
           </button>
