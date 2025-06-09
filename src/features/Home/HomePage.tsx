@@ -1,3 +1,4 @@
+import { useConnect } from "wagmi";
 import type { SDKUser } from "../../types";
 
 interface HomeProps {
@@ -13,6 +14,7 @@ export default function HomePage({
   onBegin,
   handleButtonClick,
 }: HomeProps) {
+  const {connect, connectors} = useConnect()
   const handleStartGame = () => {
     handleButtonClick();
     onBegin();
@@ -53,6 +55,20 @@ export default function HomePage({
       >
         Begin Adventure
       </button>
+      <button
+        type="button"
+        onClick={() => connect({connector: connectors[1]})}
+        className="px-8 sm:px-12 py-4 sm:py-5 text-xl sm:text-2xl font-normal text-[#2c1810] uppercase rounded-xl
+                 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 
+                 border-2 border-[#8b4513] shadow-lg
+                 transform transition-all duration-300 hover:-translate-y-1
+                 hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]
+                 active:translate-y-0 active:shadow-md"
+      >
+        Connect Wallet
+      </button>
+
+      
     </div>
   );
 }
