@@ -1,5 +1,5 @@
 {
-  "address": "0x6E8B071818A9653B64fF1f6614FA0e6C0F06320D",
+  "address": "0xF47b96B8883843B875EbB5198ABcdc23a9F93aEE",
   "abi": [
     {
       "inputs": [
@@ -139,6 +139,32 @@
       "name": "createRoom",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentRunningRoomId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getLastRoomId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {

@@ -255,4 +255,18 @@ contract SnakeGame {
             room.prasadMeter[player]
         );
     }
+
+    function getLastRoomId() external view returns (uint256) {
+        return roomCount;
+    }
+    
+    function getCurrentRunningRoomId() external view returns (uint256) {
+        for (uint256 i = roomCount; i >= 1; i--) {
+            Room storage room = roomStorage[i];
+            if (room.started && room.winner == address(0)) {
+                return i;
+            }
+        }
+        return 0; // No running room found
+    }
 }

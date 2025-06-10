@@ -80,32 +80,32 @@ export default function CreateGamePage({
       const metadataResponse = await uploadGameMetadata(finalGameName);
       console.log("Game metadata URI:", metadataResponse.uri);
 
-      handleButtonClick();
-      resetTransactionState();
+    handleButtonClick();
+    resetTransactionState();
 
-      // Add a small delay to ensure all state is updated
-      setTimeout(async () => {
-        if (needsApproval) {
+    // Add a small delay to ensure all state is updated
+    setTimeout(async () => {
+      if (needsApproval) {
           await handleApproveUSDC(metadataResponse.uri);
-        } else {
+      } else {
           await handleCreateRoom(metadataResponse.uri);
-        }
-      }, 100);
+      }
+    }, 100);
     } catch (error) {
       console.error('Error during game creation:', error);
     }
   }, [
-    isConnected,
-    prizeAmount,
-    usdcBalance,
+    isConnected, 
+    prizeAmount, 
+    usdcBalance, 
     needsApproval,
     isConnecting,
     gameName,
     defaultRoomName,
     connectWallet,
-    handleButtonClick,
-    resetTransactionState,
-    handleApproveUSDC,
+    handleButtonClick, 
+    resetTransactionState, 
+    handleApproveUSDC, 
     handleCreateRoom,
     uploadGameMetadata
   ]);
