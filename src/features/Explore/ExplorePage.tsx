@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useCallback, useEffect } from "react";
+import { useReadContract } from "wagmi";
+import { useAccount } from "wagmi";
 import useExplore from "./useExplore";
 import { useParticipate } from "../../hooks/useParticipate";
+import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 
 interface Game {
   id: string;
@@ -23,6 +26,7 @@ interface ExplorePageProps {
 
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
+  const { address, isConnected } = useAccount();
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const { games, error, isLoading, lastRoomId, currentPage, roomsPerPage, setCurrentPage } = useExplore();
@@ -67,6 +71,11 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     setIsConfirmJoinModalOpen(true);
   };
 
+  const handleRollClick = (game: Game) => {
+    handleButtonClick();
+    navigate("/game/snakes-and-ladders", { state: { gameId: game.id } });
+  };
+
   // Trigger participation flow
   const handleProceedToGame = useCallback(async () => {
     handleButtonClick();
@@ -97,6 +106,93 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       navigate("/game/snakes-and-ladders");
     }
   }, [participateStep, navigate]);
+
+  // Component to render game button with hasJoined check
+  const GameButton = ({ game }: { game: Game }) => {
+    const { data: joined } = useReadContract({
+      address: snakeGameContractInfo.address as `0x${string}`,
+      abi: snakeGameContractInfo.abi,
+      functionName: 'hasJoined',
+      args: [BigInt(game.id.split('#')[1]), address!],
+      query: { enabled: isConnected && Boolean(address), refetchInterval: 5000 },
+    });
+    
+    const hasJoined = Boolean(joined);
+    const isFull = game.players.length >= game.maxParticipants;
+
+    // If game has started
+    if (game.started) {
+      if (hasJoined) {
+        // User has joined and game started - show Roll button
+        return (
+          <button
+            type="button"
+            onClick={() => handleRollClick(game)}
+            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                     text-[#2c1810] bg-gradient-to-r from-[#00ff00] to-[#32cd32] border-[#228b22] 
+                     hover:from-[#32cd32] hover:to-[#00ff00]"
+          >
+            Roll
+          </button>
+        );
+      } else {
+        // User hasn't joined and game started - show disabled Started button
+        return (
+          <button
+            type="button"
+            disabled
+            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                     text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
+          >
+            Started
+          </button>
+        );
+      }
+    }
+
+    // Game hasn't started yet
+    if (hasJoined) {
+      // User has joined but game hasn't started - show Joined button (disabled)
+      return (
+        <button
+          type="button"
+          disabled
+          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                   text-[#ffd700] bg-[#2c1810] border-[#8b4513] cursor-not-allowed opacity-75"
+        >
+          Joined
+        </button>
+      );
+    }
+
+    // User hasn't joined and game hasn't started
+    if (isFull) {
+      // Game is full
+      return (
+        <button
+          type="button"
+          disabled
+          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                   text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
+        >
+          Full
+        </button>
+      );
+    }
+
+    // User can join
+    return (
+      <button
+        type="button"
+        onClick={() => handleJoinQuestClick(game)}
+        className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                 text-[#2c1810] bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-[#8b4513] 
+                 hover:from-[#ffed4a] hover:to-[#ffa500]"
+      >
+        Join
+      </button>
+    );
+  };
 
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
@@ -184,18 +280,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleJoinQuestClick(game)}
-                  disabled={game.started || game.players.length >= game.maxParticipants}
-                  className={`px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 ${
-                    game.started || game.players.length >= game.maxParticipants
-                      ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
-                      : "text-[#2c1810] bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500]"
-                  }`}
-                >
-                  {game.started ? "Started" : game.players.length >= game.maxParticipants ? "Full" : "Join"}
-                </button>
+                <GameButton game={game} />
               </div>
             </div>
           ))}
