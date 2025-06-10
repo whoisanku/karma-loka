@@ -4,6 +4,7 @@ import { PiUsersFill, PiUsersThreeFill, PiUsersFourFill } from "react-icons/pi";
 import type { SDKUser } from "../../types";
 import { formatUnits, parseUnits } from 'viem';
 import { useCreateGame, type TransactionStep } from '../../hooks/useCreateGame';
+import { useStorage } from '../../hooks/useStorage';
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -15,9 +16,15 @@ export default function CreateGamePage({
   handleButtonClick,
 }: CreateGamePageProps) {
   const navigate = useNavigate();
+  const defaultRoomName = fcUser
+    ? `${fcUser.username}'s room`
+    : "Adventurer's room";
+
   const [gameName, setGameName] = useState("");
   const [prizeAmount, setPrizeAmount] = useState<string>("");
   const [selectedPlayers, setSelectedPlayers] = useState<number>(4);
+
+  const { uploadGameMetadata } = useStorage();
 
   const {
     currentStep,
@@ -33,7 +40,7 @@ export default function CreateGamePage({
     connectWallet,
     resetTransactionState,
   } = useCreateGame(prizeAmount, selectedPlayers);
-
+      
   // Effect to handle completion
   useEffect(() => {
     if (currentStep === 'completed') {
@@ -67,28 +74,40 @@ export default function CreateGamePage({
       return;
     }
 
-    handleButtonClick();
-    resetTransactionState();
+    try {
+      // Upload game metadata first
+      const finalGameName = gameName || defaultRoomName;
+      const metadataResponse = await uploadGameMetadata(finalGameName);
+      console.log("Game metadata URI:", metadataResponse.uri);
 
-    // Add a small delay to ensure all state is updated
-    setTimeout(async () => {
-      if (needsApproval) {
-        await handleApproveUSDC();
-      } else {
-        await handleCreateRoom();
-      }
-    }, 100);
+      handleButtonClick();
+      resetTransactionState();
+
+      // Add a small delay to ensure all state is updated
+      setTimeout(async () => {
+        if (needsApproval) {
+          await handleApproveUSDC(metadataResponse.uri);
+        } else {
+          await handleCreateRoom(metadataResponse.uri);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error during game creation:', error);
+    }
   }, [
     isConnected,
     prizeAmount,
     usdcBalance,
     needsApproval,
     isConnecting,
+    gameName,
+    defaultRoomName,
     connectWallet,
     handleButtonClick,
     resetTransactionState,
     handleApproveUSDC,
-    handleCreateRoom
+    handleCreateRoom,
+    uploadGameMetadata
   ]);
 
   const handleCancel = () => {
@@ -204,10 +223,6 @@ export default function CreateGamePage({
         return null;
     }
   };
-
-  const defaultRoomName = fcUser
-    ? `${fcUser.username}'s room`
-    : "Adventurer's room";
 
   const playerOptions = [
     {

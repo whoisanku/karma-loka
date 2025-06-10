@@ -21,6 +21,7 @@ contract SnakeGame {
         mapping(address => uint256) lastRollSlot;
         mapping(address => uint8) prasadMeter;
         address winner;
+        string metadataUri;
     }
 
     mapping(uint256 => Room) private roomStorage;
@@ -75,9 +76,10 @@ contract SnakeGame {
         globalMaxParticipants = _newMaxParticipants;
     }
 
-    function createRoom(uint256 _requiredParticipants, uint256 _stakeAmount) external {
+    function createRoom(uint256 _requiredParticipants, uint256 _stakeAmount, string memory _metadataUri) external {
         require(_requiredParticipants > 1 && _requiredParticipants <= globalMaxParticipants, "Invalid participant count for current global max");
         require(_stakeAmount > 0, "Stake required");
+        require(bytes(_metadataUri).length > 0, "Metadata URI required");
         stakeToken.safeTransferFrom(msg.sender, address(this), _stakeAmount);
 
         roomCount++;
@@ -85,8 +87,9 @@ contract SnakeGame {
         newRoom.id = roomCount;
         newRoom.creator = msg.sender;
         newRoom.requiredParticipants = _requiredParticipants;
-        newRoom.maxParticipants = globalMaxParticipants; // Use global max participants
+        newRoom.maxParticipants = globalMaxParticipants;
         newRoom.stakeAmount = _stakeAmount;
+        newRoom.metadataUri = _metadataUri;
 
         newRoom.players.push(msg.sender);
         newRoom.hasJoined[msg.sender] = true;
@@ -223,7 +226,8 @@ contract SnakeGame {
         uint256 stakeAmount,
         bool started,
         uint256 gameStartTime,
-        address winner
+        address winner,
+        string memory metadataUri
     ) {
         Room storage room = roomStorage[roomId];
         return (
@@ -233,7 +237,8 @@ contract SnakeGame {
             room.stakeAmount,
             room.started,
             room.gameStartTime,
-            room.winner
+            room.winner,
+            room.metadataUri
         );
     }
 

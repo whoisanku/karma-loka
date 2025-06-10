@@ -638,6 +638,16 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
+"@lens-chain/sdk@^1.0.3":
+  version "1.0.3"
+  resolved "https://registry.npmjs.org/@lens-chain/sdk/-/sdk-1.0.3.tgz"
+  integrity sha512-ysfCKyhC2CouFQbysnduwKGQU8L6MI1VVBcClMLisKAJAunHFowsBaUp+j8nuQyWmUETpokqpe2Mk0P9bSGhfw==
+
+"@lens-chain/storage-client@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.npmjs.org/@lens-chain/storage-client/-/storage-client-1.0.4.tgz"
+  integrity sha512-dORCTVwSWP7MWoJ257oriH7EV8g6YU3Pxgligy28XOglLEO0PBb/D4b6fuSSqWZjvfOjr4KCC4UgqU1z66VckQ==
+
 "@lit-labs/ssr-dom-shim@^1.2.0":
   version "1.3.0"
   resolved "https://registry.npmjs.org/@lit-labs/ssr-dom-shim/-/ssr-dom-shim-1.3.0.tgz"

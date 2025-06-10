@@ -1,5 +1,5 @@
 {
-  "address": "0xfa38e86ae4BC5E46dE3b0c8D29b789001ef27253",
+  "address": "0x6E8B071818A9653B64fF1f6614FA0e6C0F06320D",
   "abi": [
     {
       "inputs": [
@@ -129,6 +129,11 @@
           "internalType": "uint256",
           "name": "_stakeAmount",
           "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_metadataUri",
+          "type": "string"
         }
       ],
       "name": "createRoom",
@@ -180,6 +185,11 @@
           "internalType": "address",
           "name": "winner",
           "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "metadataUri",
+          "type": "string"
         }
       ],
       "stateMutability": "view",

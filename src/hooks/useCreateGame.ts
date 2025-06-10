@@ -30,8 +30,8 @@ interface UseCreateGameReturn {
   usdcBalance: bigint | undefined;
   isConnected: boolean;
   isConnecting: boolean;
-  handleApproveUSDC: () => Promise<void>;
-  handleCreateRoom: () => Promise<void>;
+  handleApproveUSDC: (metadataUri: string) => Promise<void>;
+  handleCreateRoom: (metadataUri: string) => Promise<void>;
   connectWallet: () => Promise<void>;
   resetTransactionState: () => void;
 }
@@ -41,6 +41,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [approvalTxHash, setApprovalTxHash] = useState<`0x${string}` | null>(null);
   const [createRoomTxHash, setCreateRoomTxHash] = useState<`0x${string}` | null>(null);
+  const [pendingMetadataUri, setPendingMetadataUri] = useState<string | null>(null);
 
   // Wallet connection
   const { address, isConnected } = useAccount();
@@ -139,7 +140,9 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
       // Refetch allowance and proceed to create room
       setTimeout(() => {
         refetchAllowance();
-        handleCreateRoom();
+        if (pendingMetadataUri) {
+          handleCreateRoom(pendingMetadataUri);
+        }
       }, 2000);
     }
   }, [isApprovalSuccess, approvalHash]);
@@ -176,7 +179,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
     }
   }, [createHash, createRoomTxHash]);
 
-  const handleApproveUSDC = useCallback(async () => {
+  const handleApproveUSDC = useCallback(async (metadataUri: string) => {
     if (!isConnected || !address) {
       console.error('Cannot approve: wallet not connected or address not available');
       setErrorMessage("Wallet not connected. Please connect your wallet first.");
@@ -199,6 +202,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
       console.log('Starting approval for exact amount:', formatUnits(prizeAmountWei, 6), 'USDC');
       setCurrentStep('approving');
       setErrorMessage("");
+      setPendingMetadataUri(metadataUri);
       
       await writeApproval({
         chainId: baseSepolia.id,
@@ -217,7 +221,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
     }
   }, [isConnected, address, writeApproval, prizeAmountWei]);
 
-  const handleCreateRoom = useCallback(async () => {
+  const handleCreateRoom = useCallback(async (metadataUri: string) => {
     if (!isConnected || !address) {
       console.error('Cannot create room: wallet not connected or address not available');
       setErrorMessage("Wallet not connected. Please connect your wallet first.");
@@ -231,7 +235,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
     }
     
     try {
-      console.log('Creating room with players:', selectedPlayers, 'stake:', formatUnits(prizeAmountWei, 6), 'USDC');
+      console.log('Creating room with players:', selectedPlayers, 'stake:', formatUnits(prizeAmountWei, 6), 'USDC', 'metadata:', metadataUri);
       setCurrentStep('creating_room');
       setErrorMessage("");
       
@@ -240,7 +244,7 @@ export function useCreateGame(prizeAmount: string, selectedPlayers: number): Use
         address: snakeGameContractInfo.address as `0x${string}`,
         abi: snakeGameContractInfo.abi,
         functionName: 'createRoom',
-        args: [BigInt(selectedPlayers), prizeAmountWei],
+        args: [BigInt(selectedPlayers), prizeAmountWei, metadataUri],
       });
       
       setCurrentStep('waiting_creation');
