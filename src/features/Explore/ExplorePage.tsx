@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import useExplore from "./useExplore";
+import { useParticipate } from "../../hooks/useParticipate";
 
 interface Game {
   id: string;
@@ -26,6 +27,35 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const { games, error, isLoading, lastRoomId, currentPage, roomsPerPage, setCurrentPage } = useExplore();
 
+  // Setup participation hook
+  const selectedIdNumber = selectedGame ? Number(selectedGame.id.split('#')[1]) : 0;
+  const stakeAmount = selectedGame
+    ? (selectedGame.prize / selectedGame.requiredParticipants).toString()
+    : "0";
+  const {
+    currentStep: participateStep,
+    needsApproval: participateNeedsApproval,
+    isConnected: participateConnected,
+    handleApproveUSDC,
+    handleParticipate,
+    connectWallet: participateConnectWallet,
+    resetTransactionState: resetParticipateState,
+  } = useParticipate(selectedIdNumber, stakeAmount);
+
+  // Join button state
+  const isJoinLoading = ['approving','waiting_approval','participating','waiting_participation'].includes(participateStep);
+  const joinButtonText = (() => {
+    switch (participateStep) {
+      case 'approving': return 'Approving USDC...';
+      case 'waiting_approval': return 'Confirming Approval...';
+      case 'participating': return 'Joining Quest...';
+      case 'waiting_participation': return 'Confirming Join...';
+      case 'completed': return 'Joined!';
+      case 'error': return 'Try Again';
+      default: return 'Proceed to Game';
+    }
+  })();
+
   const handleShowFormClick = () => {
     handleButtonClick();
     navigate("/create");
@@ -37,11 +67,36 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     setIsConfirmJoinModalOpen(true);
   };
 
-  const handleProceedToGame = () => {
+  // Trigger participation flow
+  const handleProceedToGame = useCallback(async () => {
     handleButtonClick();
-    navigate("/game/snakes-and-ladders");
-    setIsConfirmJoinModalOpen(false);
-  };
+    if (!participateConnected) {
+      await participateConnectWallet();
+      return;
+    }
+    resetParticipateState();
+    if (participateNeedsApproval) {
+      await handleApproveUSDC();
+    } else {
+      await handleParticipate();
+    }
+  }, [
+    handleButtonClick,
+    participateConnected,
+    participateConnectWallet,
+    resetParticipateState,
+    participateNeedsApproval,
+    handleApproveUSDC,
+    handleParticipate,
+  ]);
+
+  // Navigate after successful participation
+  useEffect(() => {
+    if (participateStep === 'completed') {
+      setIsConfirmJoinModalOpen(false);
+      navigate("/game/snakes-and-ladders");
+    }
+  }, [participateStep, navigate]);
 
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
@@ -247,13 +302,15 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
             <button
               type="button"
               onClick={handleProceedToGame}
-              className="w-full px-6 py-2.5 text-sm font-normal text-[#2c1810] uppercase rounded-lg
-                         bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 
-                         border-2 border-[#8b4513] shadow-lg
-                         transform transition-all duration-300 hover:-translate-y-1
-                         hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]"
+              disabled={isJoinLoading || !participateConnected}
+              className={`w-full px-6 py-2.5 text-sm font-normal text-[#2c1810] uppercase rounded-lg
+                         bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] shadow-lg transform transition-all duration-300
+                         ${isJoinLoading || !participateConnected
+                           ? 'opacity-50 cursor-not-allowed'
+                           : 'hover:-translate-y-1 hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]'}
+                         `}
             >
-              Proceed to Game
+              {joinButtonText}
             </button>
           </div>
         </div>
