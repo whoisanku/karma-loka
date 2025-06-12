@@ -30,6 +30,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const { games, error, isLoading, lastRoomId, currentPage, roomsPerPage, setCurrentPage } = useExplore();
+  const [activeTab, setActiveTab] = useState<'all' | 'joined'>('all');
+  const joinedGames = address && games
+    ? games.filter(game =>
+        game.players.map(p => p.toLowerCase()).includes(address.toLowerCase())
+      )
+    : [];
+  const filteredGames = activeTab === 'all' ? games : joinedGames;
 
   // Setup participation hook
   const selectedIdNumber = selectedGame ? Number(selectedGame.id.split('#')[1]) : 0;
@@ -222,6 +229,23 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   return (
     <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
+      <div className="flex justify-center mb-4">
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 rounded-l ${activeTab === 'all' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+        >
+          All Quests
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('joined')}
+          className={`px-4 py-2 rounded-r ${activeTab === 'joined' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+        >
+          Joined Quests
+        </button>
+      </div>
+
       {/* Show error message if there are some games but also errors */}
       {error && games.length > 0 && (
         <div className="text-yellow-400 bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3 text-sm">
@@ -229,13 +253,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </div>
       )}
 
-      {games.length === 0 && !isLoading ? (
+      {filteredGames.length === 0 && !isLoading ? (
         <p className="text-white">No games found. Create the first quest!</p>
       ) : null}
       
-      {games.length > 0 && (
+      {filteredGames.length > 0 && (
         <div className="space-y-4">
-          {games.map((game, index) => (
+          {filteredGames.map((game, index) => (
             <div
               key={`${game.id}-${index}`}
               className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md"
@@ -293,11 +317,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           <button
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-              currentPage === 1
-                ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
-                : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"
-            }`}
+            className={`px-4 py-2 rounded-l ${currentPage === 1 ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
           >
             Previous
           </button>
@@ -309,11 +329,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           <button
             onClick={() => setCurrentPage(prev => prev + 1)}
             disabled={currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)}
-            className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-              currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)
-                ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
-                : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"
-            }`}
+            className={`px-4 py-2 rounded-r ${currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage) ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
           >
             Next
           </button>
