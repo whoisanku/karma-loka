@@ -1,5 +1,5 @@
 {
-  "address": "0xF47b96B8883843B875EbB5198ABcdc23a9F93aEE",
+  "address": "0x24c584B4E726658c32C64b46C6f3968f948c5201",
   "abi": [
     {
       "inputs": [
@@ -257,7 +257,12 @@
       "outputs": [
         {
           "internalType": "uint8",
-          "name": "position",
+          "name": "lastPosition",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "currentPosition",
           "type": "uint8"
         },
         {

@@ -20,6 +20,8 @@ contract SnakeGame {
         mapping(address => uint8) positions;
         mapping(address => uint256) lastRollSlot;
         mapping(address => uint8) prasadMeter;
+        mapping(address => uint8) lastPositions;
+        uint256 currentPlayerIndex;
         address winner;
         string metadataUri;
     }
@@ -51,8 +53,8 @@ contract SnakeGame {
         snakeLadderMap[92] = 88;
         snakeLadderMap[89] = 68;
         snakeLadderMap[74] = 53;
-        snakeLadderMap[62] = 19;
-        snakeLadderMap[64] = 60;
+        snakeLadderMap[62] = 24;
+        snakeLadderMap[64] = 20;
         snakeLadderMap[49] = 11;
         snakeLadderMap[46] = 25;
         snakeLadderMap[16] = 6;
@@ -95,6 +97,8 @@ contract SnakeGame {
         newRoom.hasJoined[msg.sender] = true;
         newRoom.positions[msg.sender] = 1;
         newRoom.lastRollSlot[msg.sender] = type(uint256).max;
+        newRoom.lastPositions[msg.sender] = 1;
+        newRoom.currentPlayerIndex = 0;
 
         emit RoomCreated(roomCount, msg.sender);
     }
@@ -110,12 +114,14 @@ contract SnakeGame {
         room.hasJoined[msg.sender] = true;
         room.positions[msg.sender] = 1;
         room.lastRollSlot[msg.sender] = type(uint256).max;
+        room.lastPositions[msg.sender] = 1;
 
         emit Participated(roomId, msg.sender);
 
         if (room.players.length == room.requiredParticipants) {
             room.started = true;
             room.gameStartTime = block.timestamp;
+            room.currentPlayerIndex = 0;
         }
     }
 
@@ -136,6 +142,7 @@ contract SnakeGame {
         Room storage room = roomStorage[roomId];
         require(room.started, "Not started");
         require(room.hasJoined[msg.sender], "Not joined");
+        require(msg.sender == room.players[room.currentPlayerIndex], "Not your turn");
         require(room.winner == address(0), "Game over");
 
         uint256 currentSlot = getCurrentSlot(room);
@@ -152,7 +159,9 @@ contract SnakeGame {
             finalRoll += extraRoll;
         }
 
-        uint8 newPos = room.positions[msg.sender] + finalRoll;
+        uint8 previousPosition = room.positions[msg.sender];
+        room.lastPositions[msg.sender] = previousPosition;
+        uint8 newPos = previousPosition + finalRoll;
         if (newPos > 100) newPos = 100;
         newPos = applySnakeLadder(newPos);
         room.positions[msg.sender] = newPos;
@@ -165,6 +174,9 @@ contract SnakeGame {
 
         room.lastRollSlot[msg.sender] = currentSlot;
         emit DiceRolled(roomId, msg.sender, finalRoll);
+        if (room.winner == address(0)) {
+            room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
+        }
     }
 
     function autoRoll(uint256 roomId) external {
@@ -187,7 +199,9 @@ contract SnakeGame {
                     finalRoll += extraRoll;
                 }
 
-                uint8 newPos = room.positions[player] + finalRoll;
+                uint8 previousPosition = room.positions[player];
+                room.lastPositions[player] = previousPosition;
+                uint8 newPos = previousPosition + finalRoll;
                 if (newPos > 100) newPos = 100;
                 newPos = applySnakeLadder(newPos);
                 room.positions[player] = newPos;
@@ -243,13 +257,15 @@ contract SnakeGame {
     }
 
     function getUserInfo(uint256 roomId, address player) external view returns (
-        uint8 position,
+        uint8 lastPosition,
+        uint8 currentPosition,
         uint256 lastRoll,
         uint8 prasad
     ) {
         Room storage room = roomStorage[roomId];
         require(room.hasJoined[player], "Player not in room");
         return (
+            room.lastPositions[player],
             room.positions[player],
             room.lastRollSlot[player],
             room.prasadMeter[player]
