@@ -25,6 +25,7 @@ interface Player {
   avatarUrl: string;
   position: number;
   lastRoll?: number;
+  lastPosition?: number;
 }
 
 type RoomInfo = [
@@ -91,7 +92,15 @@ const PlayerCorner: React.FC<{
   const horizontalAlign = corner.includes("left") ? "items-start" : "items-end";
 
   return (
-    <div className={`flex flex-col ${horizontalAlign} space-y-1 mx-2`}>
+    <div className={`flex flex-col ${horizontalAlign} space-y-1 mx-2 relative`}>
+      {player.lastPosition !== undefined && (
+        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+          <div className="relative bg-gray-800 text-white text-sm w-40 px-4 py-2 rounded text-center">
+            I rolled {player.position - player.lastPosition} and reached to {player.position}
+            <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-800" />
+          </div>
+        </div>
+      )}
       <div className="flex items-center space-x-3">{arrangement}</div>
       <span
         className={`font-['MorrisRoman'] mx-2 text-sm ${isCurrent ? "text-yellow-400" : "text-white"}`}
@@ -164,8 +173,8 @@ const SnakesAndLaddersPage: React.FC = () => {
         ? (profiles[addr]?.pfp?.url ??
           `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`)
         : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
-      // use currentPosition (index 1) and capture lastRoll (index 2)
       position: info ? Number(info[1]) : 1,
+      lastPosition: info ? Number(info[0]) : undefined,
       lastRoll: info ? Number(info[2]) : undefined,
     };
   });
