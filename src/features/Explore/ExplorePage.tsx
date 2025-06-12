@@ -105,7 +105,8 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   const handleRollClick = (game: Game) => {
     handleButtonClick();
-    navigate("/game/snakes-and-ladders", { state: { gameId: game.id } });
+    const id = game.id.split("#")[1];
+    navigate(`/game/${id}`);
   };
 
   // Trigger participation flow
@@ -133,11 +134,12 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   // Navigate after successful participation
   useEffect(() => {
-    if (participateStep === "completed") {
+    if (participateStep === "completed" && selectedGame) {
       setIsConfirmJoinModalOpen(false);
-      navigate("/game/snakes-and-ladders");
+      const id = selectedGame.id.split("#")[1];
+      navigate(`/game/${id}`);
     }
-  }, [participateStep, navigate]);
+  }, [participateStep, navigate, selectedGame]);
 
   // Component to render game button with hasJoined check
   const GameButton = ({ game }: { game: Game }) => {

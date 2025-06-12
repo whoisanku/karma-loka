@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useReadContract, useWriteContract, useAccount } from "wagmi";
 import Dice from "../../components/Dice/Dice";
+import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface Player {
   id: string;
@@ -37,32 +40,6 @@ const SNAKES_AND_LADDERS = {
   87: 94,
 };
 
-const initialPlayers: Player[] = [
-  {
-    id: "player1",
-    name: "Player 1",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Leo`,
-    position: 1,
-  },
-  {
-    id: "player2",
-    name: "Player 2",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Mimi`,
-    position: 1,
-  },
-  {
-    id: "player3",
-    name: "Player 3",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Annie`,
-    position: 1,
-  },
-  {
-    id: "player4",
-    name: "Player 4",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka`,
-    position: 1,
-  },
-];
 
 const generateSnakedCells = (): number[] => {
   const rows = 10;
@@ -149,43 +126,99 @@ const PlayerCorner: React.FC<{
 };
 
 const SnakesAndLaddersPage: React.FC = () => {
+  const { roomId } = useParams();
   const navigate = useNavigate();
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const { address, isConnected } = useAccount();
+  const numericRoomId = Number(roomId ?? 0);
+
+  const { data: contractPlayers } = useReadContract({
+    address: snakeGameContractInfo.address as `0x${string}`,
+    abi: snakeGameContractInfo.abi,
+    functionName: "getRoomPlayers",
+    args: [BigInt(numericRoomId)],
+    query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
+  });
+
+  const { data: roomInfo } = useReadContract({
+    address: snakeGameContractInfo.address as `0x${string}`,
+    abi: snakeGameContractInfo.abi,
+    functionName: "getRoomInfo",
+    args: [BigInt(numericRoomId)],
+    query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
+  });
+
+  const playerInfoQueries = Array.from({ length: 4 }, (_, i) =>
+    useReadContract({
+      address: snakeGameContractInfo.address as `0x${string}`,
+      abi: snakeGameContractInfo.abi,
+      functionName: "getUserInfo",
+      args:
+        contractPlayers && (contractPlayers as string[])[i]
+          ? [
+              BigInt(numericRoomId),
+              (contractPlayers as string[])[i] as `0x${string}`,
+            ]
+          : undefined,
+      query: {
+        enabled: Boolean(contractPlayers && (contractPlayers as string[])[i]),
+        refetchInterval: 5000,
+      },
+    })
+  );
+
+  const { profiles } = useFarcasterProfiles(
+    (contractPlayers as string[]) || []
+  );
+
+  const players: Player[] = Array.from({ length: 4 }, (_, i) => {
+    const addr = (contractPlayers as string[] | undefined)?.[i];
+    const info = playerInfoQueries[i].data as
+      | readonly [number, bigint, number]
+      | undefined;
+    return {
+      id: addr ?? `slot-${i}`,
+      name: addr ? profiles[addr]?.username ?? addr : "Waiting",
+      avatarUrl: addr
+        ? profiles[addr]?.pfp?.url ??
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
+      position: info ? Number(info[0]) : 1,
+    };
+  });
+
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [winner, setWinner] = useState<Player | null>(null);
+
+  const winnerAddress =
+    roomInfo && roomInfo[6] !== "0x0000000000000000000000000000000000000000"
+      ? (roomInfo[6] as string)
+      : null;
+
+  const winner = players.find((p) => p.id === winnerAddress) || null;
 
   const snakedCells = generateSnakedCells();
 
-  const handleDiceRollComplete = (rolledValue: number) => {
+  const { writeContract } = useWriteContract();
+
+  const handleDiceRollComplete = async (rolledValue: number) => {
     setDiceValue(rolledValue);
 
-    if (winner) {
+    if (!isConnected || !address) {
       setIsRolling(false);
       return;
     }
 
-    setPlayers((prevPlayers) => {
-      const newPlayers = [...prevPlayers];
-      const currentPlayer = newPlayers[currentPlayerIndex];
-      const newPosition = currentPlayer.position + rolledValue;
-
-      currentPlayer.lastRoll = rolledValue;
-
-      if (newPosition <= 100) {
-        const finalPosition =
-          SNAKES_AND_LADDERS[newPosition as keyof typeof SNAKES_AND_LADDERS] ||
-          newPosition;
-        currentPlayer.position = finalPosition;
-
-        if (finalPosition === 100) {
-          setWinner(currentPlayer);
-        }
-      }
-
-      return newPlayers;
-    });
+    try {
+      await writeContract({
+        address: snakeGameContractInfo.address as `0x${string}`,
+        abi: snakeGameContractInfo.abi,
+        functionName: "rollDice",
+        args: [BigInt(numericRoomId)],
+      });
+    } catch (error) {
+      console.error("Roll dice error", error);
+    }
 
     setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % players.length);
     setIsRolling(false);
@@ -196,11 +229,9 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   const resetGame = () => {
-    setPlayers(initialPlayers);
-    setCurrentPlayerIndex(0);
-    setDiceValue(1);
-    setWinner(null);
+    navigate("/explore");
   };
+
 
   return (
     <div className="fixed inset-0 overflow-hidden flex flex-col bg-[#0d0805]">
