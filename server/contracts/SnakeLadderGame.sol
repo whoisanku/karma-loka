@@ -285,4 +285,10 @@ contract SnakeGame {
         }
         return 0; // No running room found
     }
+
+    /// @notice who’s turn it is in a given room
+    function getCurrentPlayer(uint256 roomId) external view returns (address) {
+        Room storage room = roomStorage[roomId];
+        return room.players[ room.currentPlayerIndex ];
+    }
 }

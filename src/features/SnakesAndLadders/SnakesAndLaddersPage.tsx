@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useReadContract, useWriteContract, useAccount } from "wagmi";
 import Dice from "../../components/Dice/Dice";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
+import { generateSnakedCells, SNAKES_AND_LADDERS } from "./boardUtils";
+import LadderVisual from "./LadderVisual";
+import SnakeVisual from "./SnakeVisual";
 
 type RoomInfoType = readonly [
   unknown,
@@ -35,243 +38,26 @@ type RoomInfo = [
   metadataUri: string
 ];
 
-const SNAKES_AND_LADDERS = {
-  // Snakes
-  99: 41,
-  95: 75,
-  92: 88,
-  89: 68,
-  74: 53,
-  62: 24,
-  64: 20,
-  49: 11,
-  46: 25,
-  16: 6,
-
-  // Ladders
-  2: 38,
-  7: 14,
-  8: 31,
-  15: 26,
-  21: 42,
-  28: 84,
-  36: 44,
-  51: 67,
-  71: 91,
-  78: 98,
-  87: 94,
-};
-
-const LadderVisual: React.FC<{ start: number; end: number }> = ({
-  start,
-  end,
-}) => {
-  const getPosition = (cell: number) => {
-    const visualRow = Math.floor((cell - 1) / 10);
-    let col = (cell - 1) % 10;
-    if (visualRow % 2 !== 0) {
-      col = 9 - col;
-    }
-    const row = 9 - visualRow;
-    return { x: col + 0.5, y: row + 0.5 };
-  };
-
-  const p1 = getPosition(start);
-  const p2 = getPosition(end);
-
-  const ladderWidth = 0.4;
-  const rungSpacing = 0.4;
-
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-
-  const angle = Math.atan2(dy, dx);
-  const nx = -Math.sin(angle);
-  const ny = Math.cos(angle);
-
-  const rail1 = {
-    x1: p1.x + (nx * ladderWidth) / 2,
-    y1: p1.y + (ny * ladderWidth) / 2,
-    x2: p2.x + (nx * ladderWidth) / 2,
-    y2: p2.y + (ny * ladderWidth) / 2,
-  };
-
-  const rail2 = {
-    x1: p1.x - (nx * ladderWidth) / 2,
-    y1: p1.y - (ny * ladderWidth) / 2,
-    x2: p2.x - (nx * ladderWidth) / 2,
-    y2: p2.y - (ny * ladderWidth) / 2,
-  };
-
-  const numRungs = Math.floor(len / rungSpacing);
-  const rungs = Array.from({ length: numRungs }, (_, i) => {
-    const progress = (i + 1) / (numRungs + 1);
-    const rungX = p1.x + dx * progress;
-    const rungY = p1.y + dy * progress;
-    return {
-      x1: rungX + (nx * ladderWidth) / 2,
-      y1: rungY + (ny * ladderWidth) / 2,
-      x2: rungX - (nx * ladderWidth) / 2,
-      y2: rungY - (ny * ladderWidth) / 2,
-    };
-  });
-
-  return (
-    <g>
-      <line {...rail1} stroke="#8B4513" strokeWidth="0.05" />
-      <line {...rail2} stroke="#8B4513" strokeWidth="0.05" />
-      {rungs.map((rung, i) => (
-        <line key={i} {...rung} stroke="#8B4513" strokeWidth="0.05" />
-      ))}
-    </g>
-  );
-};
-
-const SnakeVisual: React.FC<{ start: number; end: number }> = ({
-  start,
-  end,
-}) => {
-  const getPosition = (cell: number) => {
-    const visualRow = Math.floor((cell - 1) / 10);
-    let col = (cell - 1) % 10;
-    if (visualRow % 2 !== 0) {
-      col = 9 - col;
-    }
-    const row = 9 - visualRow;
-    return { x: col + 0.5, y: row + 0.5 };
-  };
-
-  const p1 = getPosition(start);
-  const p2 = getPosition(end);
-
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-
-  const bodyWidth = 0.2;
-  const numSegments = Math.max(10, Math.floor(len * 5));
-  const pathPoints: { x: number; y: number; width: number }[] = [];
-
-  const angle = Math.atan2(dy, dx);
-  const nx = -Math.sin(angle);
-  const ny = Math.cos(angle);
-
-  const curveAmplitude = len * 0.2;
-  const control1X = p1.x + dx / 3 + nx * curveAmplitude;
-  const control1Y = p1.y + dy / 3 + ny * curveAmplitude;
-  const control2X = p1.x + (2 * dx) / 3 - nx * curveAmplitude;
-  const control2Y = p1.y + (2 * dy) / 3 - ny * curveAmplitude;
-
-  for (let i = 0; i <= numSegments; i++) {
-    const t = i / numSegments;
-    const mt = 1 - t;
-    const x =
-      mt * mt * mt * p1.x +
-      3 * mt * mt * t * control1X +
-      3 * mt * t * t * control2X +
-      t * t * t * p2.x;
-    const y =
-      mt * mt * mt * p1.y +
-      3 * mt * mt * t * control1Y +
-      3 * mt * t * t * control2Y +
-      t * t * t * p2.y;
-    const width = bodyWidth * (1 - t * 0.7);
-    pathPoints.push({ x, y, width });
-  }
-
-  const headAngle = Math.atan2(control1Y - p1.y, control1X - p1.x);
-  const headNx = -Math.sin(headAngle);
-  const headNy = Math.cos(headAngle);
-
-  return (
-    <g>
-      {pathPoints.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={p.width / 2}
-          fill={i % 2 === 0 ? "#8B0000" : "#B22222"}
-        />
-      ))}
-      {/* Snake Eyes */}
-      <circle
-        cx={p1.x - headNx * 0.05}
-        cy={p1.y - headNy * 0.05}
-        r={0.04}
-        fill="white"
-      />
-      <circle
-        cx={p1.x + headNx * 0.05}
-        cy={p1.y + headNy * 0.05}
-        r={0.04}
-        fill="white"
-      />
-      <circle
-        cx={p1.x - headNx * 0.05}
-        cy={p1.y - headNy * 0.05}
-        r={0.02}
-        fill="black"
-      />
-      <circle
-        cx={p1.x + headNx * 0.05}
-        cy={p1.y + headNy * 0.05}
-        r={0.02}
-        fill="black"
-      />
-      {/* Forked Tongue */}
-      <polyline
-        points={`${p1.x + headNy * 0.15},${p1.y - headNx * 0.15} ${p1.x + headNy * 0.25},${p1.y - headNx * 0.25} ${p1.x + headNy * 0.2},${p1.y - headNx * 0.2} ${p1.x + headNy * 0.3},${p1.y - headNx * 0.3}`}
-        stroke="red"
-        strokeWidth="0.02"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </g>
-  );
-};
-
-const generateSnakedCells = (): number[] => {
-  const rows = 10;
-  const cols = 10;
-  const cells: number[] = new Array(rows * cols).fill(0);
-
-  for (let visualRow = 0; visualRow < rows; visualRow++) {
-    for (let col = 0; col < cols; col++) {
-      const cellValue = visualRow * cols + col + 1;
-      let displayCol = col;
-      if (visualRow % 2 !== 0) {
-        displayCol = cols - 1 - col;
-      }
-      const actualGridRow = rows - 1 - visualRow;
-      const indexInGrid = actualGridRow * cols + displayCol;
-      cells[indexInGrid] = cellValue;
-    }
-  }
-  return cells;
-};
-
 const PlayerCorner: React.FC<{
   player: Player;
   isCurrent: boolean;
   isSelf: boolean;
+  corner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   diceValue: number;
-  handleDiceRollComplete: (value: number) => void;
+  handleDiceRollComplete: (rolledValue: number) => void;
   isRolling: boolean;
   setIsRolling: (isRolling: boolean) => void;
   winner: Player | null;
-  corner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }> = ({
   player,
   isCurrent,
   isSelf,
+  corner,
   diceValue,
   handleDiceRollComplete,
   isRolling,
   setIsRolling,
   winner,
-  corner,
 }) => {
   const avatar = (
     <img
@@ -281,21 +67,19 @@ const PlayerCorner: React.FC<{
     />
   );
 
+  useEffect(() => {
+    console.log(`Last roll for ${player.name}:`, player.lastRoll);
+  }, [player.lastRoll]);
+
   const diceBox = (
     <div className="w-12 h-12 border-2 border-[#8b4513] rounded-lg flex items-center justify-center bg-[#2c1810]">
-      {isCurrent && isSelf && !winner ? (
+      {isCurrent && !winner && (
         <Dice
           onRollComplete={handleDiceRollComplete}
           isParentRolling={isRolling}
           setParentIsRolling={setIsRolling}
           initialValue={diceValue}
         />
-      ) : (
-        player.lastRoll && (
-          <span className="text-white text-3xl font-['MorrisRoman']">
-            {player.lastRoll}
-          </span>
-        )
       )}
     </div>
   );
@@ -380,11 +164,12 @@ const SnakesAndLaddersPage: React.FC = () => {
         ? (profiles[addr]?.pfp?.url ??
           `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`)
         : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
-      position: info ? Number(info[0]) : 1,
+      // use currentPosition (index 1) and capture lastRoll (index 2)
+      position: info ? Number(info[1]) : 1,
+      lastRoll: info ? Number(info[2]) : undefined,
     };
   });
 
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
 
@@ -400,6 +185,18 @@ const SnakesAndLaddersPage: React.FC = () => {
   const snakedCells = generateSnakedCells();
 
   const { writeContract } = useWriteContract();
+
+  const { data: currentPlayerAddressRaw } = useReadContract({
+    address: snakeGameContractInfo.address as `0x${string}`,
+    abi: snakeGameContractInfo.abi,
+    functionName: "getCurrentPlayer",
+    args: [BigInt(numericRoomId)],
+    query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
+  });
+  // cast to string for lowercase comparison
+  const currentPlayerAddress = (currentPlayerAddressRaw as `0x${string}` | undefined) ?? "";
+
+  const currentPlayer = players.find((p) => p.id === currentPlayerAddress) || null;
 
   const handleDiceRollComplete = async (rolledValue: number) => {
     setDiceValue(rolledValue);
@@ -420,7 +217,6 @@ const SnakesAndLaddersPage: React.FC = () => {
       console.error("Roll dice error", error);
     }
 
-    setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % players.length);
     setIsRolling(false);
   };
 
@@ -466,15 +262,13 @@ const SnakesAndLaddersPage: React.FC = () => {
             <PlayerCorner
               key={player.id}
               player={player}
-              isCurrent={currentPlayerIndex === idx + 2}
+              isCurrent={player.id.toLowerCase() === currentPlayerAddress.toLowerCase()}
               isSelf={player.id.toLowerCase() === (address ?? "").toLowerCase()}
-              {...{
-                diceValue,
-                handleDiceRollComplete,
-                isRolling,
-                setIsRolling,
-                winner,
-              }}
+              diceValue={diceValue}
+              handleDiceRollComplete={handleDiceRollComplete}
+              isRolling={isRolling}
+              setIsRolling={setIsRolling}
+              winner={winner}
               corner={idx === 0 ? "top-left" : "top-right"}
             />
           ))}
@@ -560,15 +354,13 @@ const SnakesAndLaddersPage: React.FC = () => {
             <PlayerCorner
               key={player.id}
               player={player}
-              isCurrent={currentPlayerIndex === idx}
+              isCurrent={player.id.toLowerCase() === currentPlayerAddress.toLowerCase()}
               isSelf={player.id.toLowerCase() === (address ?? "").toLowerCase()}
-              {...{
-                diceValue,
-                handleDiceRollComplete,
-                isRolling,
-                setIsRolling,
-                winner,
-              }}
+              diceValue={diceValue}
+              handleDiceRollComplete={handleDiceRollComplete}
+              isRolling={isRolling}
+              setIsRolling={setIsRolling}
+              winner={winner}
               corner={idx === 0 ? "bottom-left" : "bottom-right"}
             />
           ))}

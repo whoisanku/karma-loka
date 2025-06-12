@@ -1,5 +1,5 @@
 {
-  "address": "0x24c584B4E726658c32C64b46C6f3968f948c5201",
+  "address": "0x4A91cF9373F06ac94643F60391706F887E1e52b8",
   "abi": [
     {
       "inputs": [
@@ -139,6 +139,25 @@
       "name": "createRoom",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "roomId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getCurrentPlayer",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
