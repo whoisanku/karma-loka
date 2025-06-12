@@ -48,7 +48,7 @@ contract SnakeGame {
         owner = msg.sender;
         stakeToken = IERC20(_stakeToken);
         globalMaxParticipants = 4; // Default max participants for any room
-        snakeLadderMap[99] = 21;
+        snakeLadderMap[99] = 41;
         snakeLadderMap[95] = 75;
         snakeLadderMap[92] = 88;
         snakeLadderMap[89] = 68;
