@@ -26,7 +26,7 @@ type RoomInfo = [
 
 const SNAKES_AND_LADDERS = {
   // Snakes
-  99: 21,
+  99: 41,
   95: 75,
   92: 88,
   89: 68,

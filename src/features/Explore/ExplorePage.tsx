@@ -232,6 +232,16 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     );
   };
 
+  // Filter games based on activeTab and user participation
+  const filteredGames = useMemo(() => {
+    if (activeTab === 'joined') {
+      return games.filter((game) =>
+        address ? game.players.includes(address) : false
+      );
+    }
+    return games;
+  }, [activeTab, games, address]);
+
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
     return (
@@ -284,13 +294,17 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </div>
       )}
 
-      {games.length === 0 && !isLoading ? (
-        <p className="text-white">No games found. Create the first quest!</p>
+      {filteredGames.length === 0 && !isLoading ? (
+        <p className="text-white">
+          {activeTab === 'joined'
+            ? 'No joined quests found.'
+            : 'No games found. Create the first quest!'}
+        </p>
       ) : null}
 
-      {games.length > 0 && (
+      {filteredGames.length > 0 && (
         <div className="space-y-4">
-          {games.map((game, index) => (
+          {filteredGames.map((game, index) => (
             <div
               key={`${game.id}-${index}`}
               className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md"
