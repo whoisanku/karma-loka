@@ -147,6 +147,11 @@ const SnakesAndLaddersPage: React.FC = () => {
     query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
   });
 
+  const requiredSlots =
+    roomInfo && typeof roomInfo[1] !== "undefined"
+      ? Number(roomInfo[1] as bigint)
+      : 4;
+
   const playerInfoQueries = Array.from({ length: 4 }, (_, i) =>
     useReadContract({
       address: snakeGameContractInfo.address as `0x${string}`,
@@ -170,7 +175,7 @@ const SnakesAndLaddersPage: React.FC = () => {
     (contractPlayers as string[]) || []
   );
 
-  const players: Player[] = Array.from({ length: 4 }, (_, i) => {
+  const players: Player[] = Array.from({ length: requiredSlots }, (_, i) => {
     const addr = (contractPlayers as string[] | undefined)?.[i];
     const info = playerInfoQueries[i].data as
       | readonly [number, bigint, number]
@@ -263,30 +268,21 @@ const SnakesAndLaddersPage: React.FC = () => {
       <div className="flex-grow flex flex-col justify-between p-2 sm:p-4 relative">
         {/* Top Players */}
         <div className="flex justify-between items-start mb-2 sm:mb-4">
-          <PlayerCorner
-            player={players[3]}
-            isCurrent={currentPlayerIndex === 3}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="top-left"
-          />
-          <PlayerCorner
-            player={players[2]}
-            isCurrent={currentPlayerIndex === 2}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="top-right"
-          />
+          {players.slice(2).map((player, idx) => (
+            <PlayerCorner
+              key={player.id}
+              player={player}
+              isCurrent={currentPlayerIndex === idx + 2}
+              {...{
+                diceValue,
+                handleDiceRollComplete,
+                isRolling,
+                setIsRolling,
+                winner,
+              }}
+              corner={idx === 0 ? "top-right" : "top-left"}
+            />
+          ))}
         </div>
 
         {/* Game Board */}
@@ -343,30 +339,21 @@ const SnakesAndLaddersPage: React.FC = () => {
 
         {/* Bottom Players */}
         <div className="flex justify-between items-end mt-2 sm:mt-4">
-          <PlayerCorner
-            player={players[0]}
-            isCurrent={currentPlayerIndex === 0}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="bottom-left"
-          />
-          <PlayerCorner
-            player={players[1]}
-            isCurrent={currentPlayerIndex === 1}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="bottom-right"
-          />
+          {players.slice(0, 2).map((player, idx) => (
+            <PlayerCorner
+              key={player.id}
+              player={player}
+              isCurrent={currentPlayerIndex === idx}
+              {...{
+                diceValue,
+                handleDiceRollComplete,
+                isRolling,
+                setIsRolling,
+                winner,
+              }}
+              corner={idx === 0 ? "bottom-left" : "bottom-right"}
+            />
+          ))}
         </div>
 
         {winner && (
