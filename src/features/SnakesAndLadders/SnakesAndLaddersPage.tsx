@@ -228,6 +228,14 @@ const SnakesAndLaddersPage: React.FC = () => {
     navigate("/explore");
   };
 
+  // compute wait time until next 10-minute interval
+  const gameStartTimeRaw = roomInfo ? ((roomInfo as RoomInfoType)[5] as bigint) : BigInt(0);
+  const gameStartTime = Number(gameStartTimeRaw);
+  const elapsedSecs = Math.floor(Date.now() / 1000) - gameStartTime;
+  const elapsedMins = Math.floor(elapsedSecs / 60);
+  const remainderMins = elapsedMins % 10;
+  const waitTime = (10 - remainderMins) % 10;
+
   return (
     <div className="fixed inset-0 overflow-hidden flex flex-col bg-[#0d0805]">
       <div className="flex items-center justify-between px-6 py-3 bg-[#1a0f09] border-b-2 border-[#8b4513] shadow-md z-20 flex-shrink-0">
@@ -349,21 +357,36 @@ const SnakesAndLaddersPage: React.FC = () => {
         </div>
 
         {/* Bottom Players */}
-        <div className="flex justify-between mt-2 sm:mt-4">
-          {players.slice(0, 2).map((player, idx) => (
+        <div className="relative mt-2 sm:mt-4 flex justify-between items-center">
+          {players[0] && (
             <PlayerCorner
-              key={player.id}
-              player={player}
-              isCurrent={player.id.toLowerCase() === currentPlayerAddress.toLowerCase()}
-              isSelf={player.id.toLowerCase() === (address ?? "").toLowerCase()}
+              player={players[0]}
+              isCurrent={players[0].id.toLowerCase() === currentPlayerAddress.toLowerCase()}
+              isSelf={players[0].id.toLowerCase() === (address ?? "").toLowerCase()}
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
               isRolling={isRolling}
               setIsRolling={setIsRolling}
               winner={winner}
-              corner={idx === 0 ? "bottom-left" : "bottom-right"}
+              corner="bottom-left"
             />
-          ))}
+          )}
+          {players[1] && (
+            <PlayerCorner
+              player={players[1]}
+              isCurrent={players[1].id.toLowerCase() === currentPlayerAddress.toLowerCase()}
+              isSelf={players[1].id.toLowerCase() === (address ?? "").toLowerCase()}
+              diceValue={diceValue}
+              handleDiceRollComplete={handleDiceRollComplete}
+              isRolling={isRolling}
+              setIsRolling={setIsRolling}
+              winner={winner}
+              corner="bottom-right"
+            />
+          )}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
+            <span className="text-white text-md">Next roll in {waitTime} m</span>
+          </div>
         </div>
 
         {winner && (
