@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useReadContract, useWriteContract, useAccount } from "wagmi";
 import Dice from "../../components/Dice/Dice";
+import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface Player {
   id: string;
@@ -9,6 +12,17 @@ interface Player {
   position: number;
   lastRoll?: number;
 }
+
+type RoomInfo = [
+  creator: `0x${string}`,
+  requiredParticipants: bigint,
+  maxParticipants: bigint,
+  stakeAmount: bigint,
+  started: boolean,
+  gameStartTime: bigint,
+  winner: `0x${string}`,
+  metadataUri: string
+];
 
 const SNAKES_AND_LADDERS = {
   // Snakes
@@ -37,33 +51,6 @@ const SNAKES_AND_LADDERS = {
   87: 94,
 };
 
-const initialPlayers: Player[] = [
-  {
-    id: "player1",
-    name: "Player 1",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Leo`,
-    position: 1,
-  },
-  {
-    id: "player2",
-    name: "Player 2",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Mimi`,
-    position: 1,
-  },
-  {
-    id: "player3",
-    name: "Player 3",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Annie`,
-    position: 1,
-  },
-  {
-    id: "player4",
-    name: "Player 4",
-    avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka`,
-    position: 1,
-  },
-];
-
 const generateSnakedCells = (): number[] => {
   const rows = 10;
   const cols = 10;
@@ -87,6 +74,7 @@ const generateSnakedCells = (): number[] => {
 const PlayerCorner: React.FC<{
   player: Player;
   isCurrent: boolean;
+  isSelf: boolean;
   diceValue: number;
   handleDiceRollComplete: (value: number) => void;
   isRolling: boolean;
@@ -96,6 +84,7 @@ const PlayerCorner: React.FC<{
 }> = ({
   player,
   isCurrent,
+  isSelf,
   diceValue,
   handleDiceRollComplete,
   isRolling,
@@ -113,7 +102,7 @@ const PlayerCorner: React.FC<{
 
   const diceBox = (
     <div className="w-12 h-12 border-2 border-[#8b4513] rounded-lg flex items-center justify-center bg-[#2c1810]">
-      {isCurrent && !winner ? (
+      {isCurrent && isSelf && !winner ? (
         <Dice
           onRollComplete={handleDiceRollComplete}
           isParentRolling={isRolling}
@@ -149,43 +138,104 @@ const PlayerCorner: React.FC<{
 };
 
 const SnakesAndLaddersPage: React.FC = () => {
+  const { roomId } = useParams();
   const navigate = useNavigate();
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const { address, isConnected } = useAccount();
+  const numericRoomId = Number(roomId ?? 0);
+
+  const { data: contractPlayers } = useReadContract({
+    address: snakeGameContractInfo.address as `0x${string}`,
+    abi: snakeGameContractInfo.abi,
+    functionName: "getRoomPlayers",
+    args: [BigInt(numericRoomId)],
+    query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
+  });
+
+  const roomInfoQuery = useReadContract({
+    address: snakeGameContractInfo.address as `0x${string}`,
+    abi: snakeGameContractInfo.abi,
+    functionName: "getRoomInfo",
+    args: [BigInt(numericRoomId)],
+    query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
+  });
+  const roomInfo = roomInfoQuery.data as RoomInfo | undefined;
+  const requiredSlots =
+    roomInfo && roomInfo[1] !== undefined
+      ? Number(roomInfo[1])
+      : 4;
+
+  const playerInfoQueries = Array.from({ length: 4 }, (_, i) =>
+    useReadContract({
+      address: snakeGameContractInfo.address as `0x${string}`,
+      abi: snakeGameContractInfo.abi,
+      functionName: "getUserInfo",
+      args:
+        contractPlayers && (contractPlayers as string[])[i]
+          ? [
+              BigInt(numericRoomId),
+              (contractPlayers as string[])[i] as `0x${string}`,
+            ]
+          : undefined,
+      query: {
+        enabled: Boolean(contractPlayers && (contractPlayers as string[])[i]),
+        refetchInterval: 5000,
+      },
+    })
+  );
+
+  const { profiles } = useFarcasterProfiles(
+    (contractPlayers as string[]) || []
+  );
+
+  const players: Player[] = Array.from({ length: requiredSlots }, (_, i) => {
+    const addr = (contractPlayers as string[] | undefined)?.[i];
+    const info = playerInfoQueries[i].data as
+      | readonly [number, bigint, number]
+      | undefined;
+    return {
+      id: addr ?? `slot-${i}`,
+      name: addr ? profiles[addr]?.username ?? addr : "Waiting",
+      avatarUrl: addr
+        ? profiles[addr]?.pfp?.url ??
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
+      position: info ? Number(info[0]) : 1,
+    };
+  });
+
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [winner, setWinner] = useState<Player | null>(null);
+
+  const winnerAddress =
+    roomInfo && roomInfo[6] !== "0x0000000000000000000000000000000000000000"
+      ? (roomInfo[6] as string)
+      : null;
+
+  const winner = players.find((p) => p.id === winnerAddress) || null;
 
   const snakedCells = generateSnakedCells();
 
-  const handleDiceRollComplete = (rolledValue: number) => {
+  const { writeContract } = useWriteContract();
+
+  const handleDiceRollComplete = async (rolledValue: number) => {
     setDiceValue(rolledValue);
 
-    if (winner) {
+    if (!isConnected || !address) {
       setIsRolling(false);
       return;
     }
 
-    setPlayers((prevPlayers) => {
-      const newPlayers = [...prevPlayers];
-      const currentPlayer = newPlayers[currentPlayerIndex];
-      const newPosition = currentPlayer.position + rolledValue;
-
-      currentPlayer.lastRoll = rolledValue;
-
-      if (newPosition <= 100) {
-        const finalPosition =
-          SNAKES_AND_LADDERS[newPosition as keyof typeof SNAKES_AND_LADDERS] ||
-          newPosition;
-        currentPlayer.position = finalPosition;
-
-        if (finalPosition === 100) {
-          setWinner(currentPlayer);
-        }
-      }
-
-      return newPlayers;
-    });
+    try {
+      await writeContract({
+        address: snakeGameContractInfo.address as `0x${string}`,
+        abi: snakeGameContractInfo.abi,
+        functionName: "rollDice",
+        args: [BigInt(numericRoomId)],
+      });
+    } catch (error) {
+      console.error("Roll dice error", error);
+    }
 
     setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % players.length);
     setIsRolling(false);
@@ -196,10 +246,7 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   const resetGame = () => {
-    setPlayers(initialPlayers);
-    setCurrentPlayerIndex(0);
-    setDiceValue(1);
-    setWinner(null);
+    navigate("/explore");
   };
 
   return (
@@ -232,30 +279,22 @@ const SnakesAndLaddersPage: React.FC = () => {
       <div className="flex-grow flex flex-col justify-between p-2 sm:p-4 relative">
         {/* Top Players */}
         <div className="flex justify-between items-start mb-2 sm:mb-4">
-          <PlayerCorner
-            player={players[3]}
-            isCurrent={currentPlayerIndex === 3}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="top-left"
-          />
-          <PlayerCorner
-            player={players[2]}
-            isCurrent={currentPlayerIndex === 2}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="top-right"
-          />
+          {players.slice(2).map((player, idx) => (
+            <PlayerCorner
+              key={player.id}
+              player={player}
+              isCurrent={currentPlayerIndex === idx + 2}
+              isSelf={player.id.toLowerCase() === (address ?? '').toLowerCase()}
+              {...{
+                diceValue,
+                handleDiceRollComplete,
+                isRolling,
+                setIsRolling,
+                winner,
+              }}
+              corner={idx === 0 ? "top-right" : "top-left"}
+            />
+          ))}
         </div>
 
         {/* Game Board */}
@@ -312,30 +351,22 @@ const SnakesAndLaddersPage: React.FC = () => {
 
         {/* Bottom Players */}
         <div className="flex justify-between items-end mt-2 sm:mt-4">
-          <PlayerCorner
-            player={players[0]}
-            isCurrent={currentPlayerIndex === 0}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="bottom-left"
-          />
-          <PlayerCorner
-            player={players[1]}
-            isCurrent={currentPlayerIndex === 1}
-            {...{
-              diceValue,
-              handleDiceRollComplete,
-              isRolling,
-              setIsRolling,
-              winner,
-            }}
-            corner="bottom-right"
-          />
+          {players.slice(0, 2).map((player, idx) => (
+            <PlayerCorner
+              key={player.id}
+              player={player}
+              isCurrent={currentPlayerIndex === idx}
+              isSelf={player.id.toLowerCase() === (address ?? '').toLowerCase()}
+              {...{
+                diceValue,
+                handleDiceRollComplete,
+                isRolling,
+                setIsRolling,
+                winner,
+              }}
+              corner={idx === 0 ? "bottom-left" : "bottom-right"}
+            />
+          ))}
         </div>
 
         {winner && (

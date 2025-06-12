@@ -226,7 +226,7 @@ function AppContent() {
         }
       />
       <Route
-        path="/game/snakes-and-ladders"
+        path="/game/:roomId"
         element={<SnakesAndLaddersPage />}
       />
     </Routes>

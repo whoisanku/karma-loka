@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
-import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
+import snakeGameContractInfo from "../constants/snakeGameContractInfo.json";
 
 interface Game {
   id: string;
@@ -16,19 +16,20 @@ interface Game {
 }
 
 type RoomInfoResponse = readonly [
-  string,   // creator
-  bigint,   // requiredParticipants
-  bigint,   // maxParticipants
-  bigint,   // stakeAmount
-  boolean,  // started
-  bigint,   // gameStartTime
-  string,   // winner
-  string    // metadataUri
+  string, // creator
+  bigint, // requiredParticipants
+  bigint, // maxParticipants
+  bigint, // stakeAmount
+  boolean, // started
+  bigint, // gameStartTime
+  string, // winner
+  string, // metadataUri
 ];
 
 const addressToUsername = (address: string): string => {
-  if (!address || address === "0x0000000000000000000000000000000000000000") return "Unknown";
-  return `@${address.slice(2, 8).toLowerCase()}`;
+  if (!address || address === "0x0000000000000000000000000000000000000000")
+    return "Unknown";
+  return address;
 };
 
 const weiToUsdc = (weiAmount: bigint): number => {
@@ -112,11 +113,17 @@ export default function useExplore(roomsPerPage = 5) {
       if (infoQ.data && playersQ.data) {
         try {
           const data = infoQ.data as RoomInfoResponse;
-          const [creator, req, max, stake, started, startTime, winner, metadata] =
-            data;
-          if (
-            creator !== "0x0000000000000000000000000000000000000000"
-          ) {
+          const [
+            creator,
+            req,
+            max,
+            stake,
+            started,
+            startTime,
+            winner,
+            metadata,
+          ] = data;
+          if (creator !== "0x0000000000000000000000000000000000000000") {
             fetched.push({
               id: `Game #${roomId}`,
               creator: addressToUsername(creator),
@@ -138,19 +145,22 @@ export default function useExplore(roomsPerPage = 5) {
     });
 
     setGames(fetched);
-    setError(hasErrors && fetched.length === 0 ?
-      "Failed to load games. Please try refreshing the page." : null);
+    setError(
+      hasErrors && fetched.length === 0
+        ? "Failed to load games. Please try refreshing the page."
+        : null
+    );
   }, [
     roomIds,
-    ...roomInfoQueries.map(q => q.data),
-    ...roomInfoQueries.map(q => q.error),
-    ...roomPlayersQueries.map(q => q.data),
-    ...roomPlayersQueries.map(q => q.error)
+    ...roomInfoQueries.map((q) => q.data),
+    ...roomInfoQueries.map((q) => q.error),
+    ...roomPlayersQueries.map((q) => q.data),
+    ...roomPlayersQueries.map((q) => q.error),
   ]);
 
   const isLoading =
-    roomInfoQueries.some(q => q.isLoading) ||
-    roomPlayersQueries.some(q => q.isLoading);
+    roomInfoQueries.some((q) => q.isLoading) ||
+    roomPlayersQueries.some((q) => q.isLoading);
 
   return {
     games,

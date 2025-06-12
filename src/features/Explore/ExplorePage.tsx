@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
-import useExplore from "./useExplore";
+import useExplore from "../../hooks/useExplore";
 import { useParticipate } from "../../hooks/useParticipate";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface Game {
   id: string;
@@ -27,19 +28,32 @@ interface ExplorePageProps {
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
+  const [activeTab, setActiveTab] = useState("all");
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const { games, error, isLoading, lastRoomId, currentPage, roomsPerPage, setCurrentPage } = useExplore();
-  const [activeTab, setActiveTab] = useState<'all' | 'joined'>('all');
-  const joinedGames = address && games
-    ? games.filter(game =>
-        game.players.map(p => p.toLowerCase()).includes(address.toLowerCase())
-      )
-    : [];
-  const filteredGames = activeTab === 'all' ? games : joinedGames;
+  const {
+    games,
+    error,
+    isLoading,
+    lastRoomId,
+    currentPage,
+    roomsPerPage,
+    setCurrentPage,
+  } = useExplore();
+
+  const allAddressesToFetch = useMemo(() => {
+    const players = games.flatMap((game) => game.players);
+    const creators = games.map((game) => game.creator);
+    return Array.from(new Set([...players, ...creators]));
+  }, [games]);
+
+  const { profiles: farcasterProfiles } =
+    useFarcasterProfiles(allAddressesToFetch);
 
   // Setup participation hook
-  const selectedIdNumber = selectedGame ? Number(selectedGame.id.split('#')[1]) : 0;
+  const selectedIdNumber = selectedGame
+    ? Number(selectedGame.id.split("#")[1])
+    : 0;
   const stakeAmount = selectedGame
     ? (selectedGame.prize / selectedGame.requiredParticipants).toString()
     : "0";
@@ -54,16 +68,28 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   } = useParticipate(selectedIdNumber, stakeAmount);
 
   // Join button state
-  const isJoinLoading = ['approving','waiting_approval','participating','waiting_participation'].includes(participateStep);
+  const isJoinLoading = [
+    "approving",
+    "waiting_approval",
+    "participating",
+    "waiting_participation",
+  ].includes(participateStep);
   const joinButtonText = (() => {
     switch (participateStep) {
-      case 'approving': return 'Approving USDC...';
-      case 'waiting_approval': return 'Confirming Approval...';
-      case 'participating': return 'Joining Quest...';
-      case 'waiting_participation': return 'Confirming Join...';
-      case 'completed': return 'Joined!';
-      case 'error': return 'Try Again';
-      default: return 'Proceed to Game';
+      case "approving":
+        return "Approving USDC...";
+      case "waiting_approval":
+        return "Confirming Approval...";
+      case "participating":
+        return "Joining Quest...";
+      case "waiting_participation":
+        return "Confirming Join...";
+      case "completed":
+        return "Joined!";
+      case "error":
+        return "Try Again";
+      default:
+        return "Proceed to Game";
     }
   })();
 
@@ -80,7 +106,8 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   const handleRollClick = (game: Game) => {
     handleButtonClick();
-    navigate("/game/snakes-and-ladders", { state: { gameId: game.id } });
+    const id = game.id.split("#")[1];
+    navigate(`/game/${id}`);
   };
 
   // Trigger participation flow
@@ -108,22 +135,26 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   // Navigate after successful participation
   useEffect(() => {
-    if (participateStep === 'completed') {
+    if (participateStep === "completed" && selectedGame) {
       setIsConfirmJoinModalOpen(false);
-      navigate("/game/snakes-and-ladders");
+      const id = selectedGame.id.split("#")[1];
+      navigate(`/game/${id}`);
     }
-  }, [participateStep, navigate]);
+  }, [participateStep, navigate, selectedGame]);
 
   // Component to render game button with hasJoined check
   const GameButton = ({ game }: { game: Game }) => {
     const { data: joined } = useReadContract({
       address: snakeGameContractInfo.address as `0x${string}`,
       abi: snakeGameContractInfo.abi,
-      functionName: 'hasJoined',
-      args: [BigInt(game.id.split('#')[1]), address!],
-      query: { enabled: isConnected && Boolean(address), refetchInterval: 5000 },
+      functionName: "hasJoined",
+      args: [BigInt(game.id.split("#")[1]), address!],
+      query: {
+        enabled: isConnected && Boolean(address),
+        refetchInterval: 5000,
+      },
     });
-    
+
     const hasJoined = Boolean(joined);
     const isFull = game.players.length >= game.maxParticipants;
 
@@ -208,8 +239,8 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         <div className="text-red-400 bg-red-900/20 border border-red-500/50 rounded-lg p-4">
           <p className="font-semibold mb-2">Error Loading Games</p>
           <p className="text-sm">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
           >
             Refresh Page
@@ -253,45 +284,62 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </div>
       )}
 
-      {filteredGames.length === 0 && !isLoading ? (
+      {games.length === 0 && !isLoading ? (
         <p className="text-white">No games found. Create the first quest!</p>
       ) : null}
-      
-      {filteredGames.length > 0 && (
+
+      {games.length > 0 && (
         <div className="space-y-4">
-          {filteredGames.map((game, index) => (
+          {games.map((game, index) => (
             <div
               key={`${game.id}-${index}`}
               className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md"
             >
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[#ffd700] font-normal">{game.id}</span>
-                <span className="text-sm">Prize: {game.prize.toFixed(2)} USDC</span>
+                <span className="text-sm">
+                  Prize: {game.prize.toFixed(2)} USDC
+                </span>
               </div>
-              <p className="text-sm mb-1">Creator: {game.creator}</p>
+              <p className="text-sm mb-1">
+                Creator:{" "}
+                {farcasterProfiles[game.creator]?.username ?? game.creator}
+              </p>
               <p className="text-xs text-gray-400 mb-1">
-                Players: {game.players.length}/{game.requiredParticipants} required
+                Players: {game.players.length}/{game.requiredParticipants}{" "}
+                required
               </p>
               {game.started && (
                 <p className="text-xs text-green-400 mb-1">Game Started</p>
               )}
-              
+
               <div className="flex justify-between items-center mt-3 mb-1">
                 <div className="flex items-center">
                   {game.players.length > 0 ? (
                     <div className="flex -space-x-2">
-                      {game.players.slice(0, 3).map((player, pIndex) => (
-                        <img
-                          key={pIndex}
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player}`}
-                          alt={player}
-                          title={player}
-                          className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
-                        />
-                      ))}
+                      {game.players.slice(0, 3).map((player, pIndex) => {
+                        const profile = farcasterProfiles[player];
+                        const pfpUrl =
+                          profile?.pfp?.url ??
+                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${player}`;
+                        const username = profile?.username ?? player;
+
+                        return (
+                          <img
+                            key={pIndex}
+                            src={pfpUrl}
+                            alt={username}
+                            title={username}
+                            className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                          />
+                        );
+                      })}
                       {game.players.length > 3 && (
                         <div
-                          title={`More: ${game.players.slice(3).join(", ")}`}
+                          title={`More: ${game.players
+                            .slice(3)
+                            .map((p) => farcasterProfiles[p]?.username ?? p)
+                            .join(", ")}`}
                           className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
                         >
                           +{game.players.length - 3}
@@ -315,21 +363,27 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       {!!lastRoomId && Number(lastRoomId) > roomsPerPage && (
         <div className="flex justify-center items-center space-x-4 mt-6">
           <button
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
             className={`px-4 py-2 rounded-l ${currentPage === 1 ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
           >
             Previous
           </button>
-          
+
           <span className="text-white text-sm">
             Page {currentPage} of {Math.ceil(Number(lastRoomId) / roomsPerPage)}
           </span>
-          
+
           <button
-            onClick={() => setCurrentPage(prev => prev + 1)}
-            disabled={currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)}
-            className={`px-4 py-2 rounded-r ${currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage) ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+            disabled={
+              currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)
+            }
+            className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+              currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)
+                ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
+                : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"
+            }`}
           >
             Next
           </button>
@@ -395,9 +449,23 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
             </h2>
 
             <div className="text-white text-sm mb-6 space-y-2">
-              <p>Are you sure you want to join <strong>{selectedGame.id}</strong>?</p>
-              <p>Stake Amount: <strong>{(selectedGame.prize / selectedGame.requiredParticipants).toFixed(2)} USDC</strong></p>
-              <p>Total Prize Pool: <strong>{selectedGame.prize.toFixed(2)} USDC</strong></p>
+              <p>
+                Are you sure you want to join <strong>{selectedGame.id}</strong>
+                ?
+              </p>
+              <p>
+                Stake Amount:{" "}
+                <strong>
+                  {(
+                    selectedGame.prize / selectedGame.requiredParticipants
+                  ).toFixed(2)}{" "}
+                  USDC
+                </strong>
+              </p>
+              <p>
+                Total Prize Pool:{" "}
+                <strong>{selectedGame.prize.toFixed(2)} USDC</strong>
+              </p>
             </div>
 
             <button
@@ -406,9 +474,11 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               disabled={isJoinLoading || !participateConnected}
               className={`w-full px-6 py-2.5 text-sm font-normal text-[#2c1810] uppercase rounded-lg
                          bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-2 border-[#8b4513] shadow-lg transform transition-all duration-300
-                         ${isJoinLoading || !participateConnected
-                           ? 'opacity-50 cursor-not-allowed'
-                           : 'hover:-translate-y-1 hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]'}
+                         ${
+                           isJoinLoading || !participateConnected
+                             ? "opacity-50 cursor-not-allowed"
+                             : "hover:-translate-y-1 hover:shadow-xl hover:bg-gradient-to-r hover:from-[#ff8c00] hover:to-[#ffd700]"
+                         }
                          `}
             >
               {joinButtonText}
