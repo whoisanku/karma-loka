@@ -64,6 +64,7 @@ const generateSnakedCells = (): number[] => {
 const PlayerCorner: React.FC<{
   player: Player;
   isCurrent: boolean;
+  isSelf: boolean;
   diceValue: number;
   handleDiceRollComplete: (value: number) => void;
   isRolling: boolean;
@@ -73,6 +74,7 @@ const PlayerCorner: React.FC<{
 }> = ({
   player,
   isCurrent,
+  isSelf,
   diceValue,
   handleDiceRollComplete,
   isRolling,
@@ -90,7 +92,7 @@ const PlayerCorner: React.FC<{
 
   const diceBox = (
     <div className="w-12 h-12 border-2 border-[#8b4513] rounded-lg flex items-center justify-center bg-[#2c1810]">
-      {isCurrent && !winner ? (
+      {isCurrent && isSelf && !winner ? (
         <Dice
           onRollComplete={handleDiceRollComplete}
           isParentRolling={isRolling}
@@ -273,6 +275,7 @@ const SnakesAndLaddersPage: React.FC = () => {
               key={player.id}
               player={player}
               isCurrent={currentPlayerIndex === idx + 2}
+              isSelf={player.id.toLowerCase() === (address ?? '').toLowerCase()}
               {...{
                 diceValue,
                 handleDiceRollComplete,
@@ -344,6 +347,7 @@ const SnakesAndLaddersPage: React.FC = () => {
               key={player.id}
               player={player}
               isCurrent={currentPlayerIndex === idx}
+              isSelf={player.id.toLowerCase() === (address ?? '').toLowerCase()}
               {...{
                 diceValue,
                 handleDiceRollComplete,
