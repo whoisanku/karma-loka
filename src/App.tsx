@@ -12,6 +12,7 @@ import ExplorePage from "./features/Explore/ExplorePage";
 import HomePage from "./features/Home/HomePage";
 import SnakesAndLaddersPage from "./features/SnakesAndLadders/SnakesAndLaddersPage";
 import CreateGamePage from "./features/CreateGame/CreateGamePage";
+import LeaderboardPage from "./features/Leaderboard/LeaderboardPage";
 import "./styles/global.css";
 import type { SDKUser } from "./types";
 
@@ -226,9 +227,10 @@ function AppContent() {
         }
       />
       <Route
-        path="/game/:roomId"
-        element={<SnakesAndLaddersPage />}
+        path="/leaderboard"
+        element={<LeaderboardPage handleButtonClick={handleButtonClick} />}
       />
+      <Route path="/game/:roomId" element={<SnakesAndLaddersPage />} />
     </Routes>
   );
 
@@ -251,7 +253,9 @@ function AppContent() {
             ? "Choose Your Quest"
             : location.pathname === "/create"
               ? "Host New Quest"
-              : "Mystic Paths"
+              : location.pathname === "/leaderboard"
+                ? "Leaderboard"
+                : "Mystic Paths"
         }
       >
         {routeContent}

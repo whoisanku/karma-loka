@@ -13,6 +13,7 @@
     "@farcaster/frame-sdk": "latest",
     "@farcaster/frame-wagmi-connector": "latest",
     "@headlessui/react": "^2.2.4",
+    "@hugeicons/react": "^1.0.5",
     "@lens-chain/sdk": "^1.0.3",
     "@lens-chain/storage-client": "^1.0.4",
     "@react-three/drei": "9.102.6",
