@@ -93,7 +93,7 @@ const PlayerCorner: React.FC<{
 
   return (
     <div className={`flex flex-col ${horizontalAlign} space-y-1 mx-2 relative`}>
-      {player.lastPosition !== undefined && (
+      {player.lastRoll !== undefined && player.lastRoll > 0 && (
         <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
           <div className="relative bg-gray-800 text-white text-sm w-40 px-4 py-2 rounded text-center">
             I rolled {player.position - player.lastPosition} and reached to {player.position}
