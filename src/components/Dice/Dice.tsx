@@ -8,6 +8,9 @@ interface DiceProps {
   initialValue?: number;
   soundSrc?: string; // Optional prop for the sound file source
   disabled?: boolean; // Optional prop to disable rolling
+  spinning?: boolean;
+  stopAt?: number | null;
+  waitingForResult?: boolean; // New prop to indicate waiting for transaction result
 }
 
 const getRandomNumber = (min: number, max: number): number => {
@@ -23,11 +26,75 @@ const Dice: React.FC<DiceProps> = ({
   initialValue = 1,
   soundSrc = "/dice_roll.mp3", // Default sound file path
   disabled = false, // Disable rolling when true
+  spinning,
+  stopAt,
+  waitingForResult = false, // Default to false
 }) => {
   const dieRef = useRef<HTMLUListElement>(null);
   const [currentDisplayValue, setCurrentDisplayValue] =
     useState<number>(initialValue);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [display, setDisplay] = useState(initialValue);
+  const tick = useRef<NodeJS.Timeout>();
+  const continuousRollTick = useRef<NodeJS.Timeout>();
+
+  // Effect for handling spinning state
+  useEffect(() => {
+    if (spinning) {
+      // start an interval that re-applies the CSS roll class every 400 ms
+      tick.current = setInterval(() => {
+        const roll = getRandomNumber(1, 6);
+        dieRef.current!.dataset.roll = roll.toString();
+      }, 400);
+    } else {
+      clearInterval(tick.current);
+      if (stopAt) {
+        dieRef.current!.dataset.roll = stopAt.toString();
+        setDisplay(stopAt);
+      }
+    }
+    return () => clearInterval(tick.current);
+  }, [spinning, stopAt]);
+
+  // Effect to handle continuous rolling while waiting for transaction result
+  useEffect(() => {
+    if (waitingForResult && dieRef.current) {
+      // Don't clear existing spinning animation
+      if (!continuousRollTick.current) {
+        const dieElement = dieRef.current;
+
+        // Make sure the dice is in rolling animation state
+        const isCurrentlyOdd = dieElement.classList.contains(
+          styles["odd-roll"]
+        );
+        dieElement.classList.remove(
+          isCurrentlyOdd ? styles["odd-roll"] : styles["even-roll"]
+        );
+        dieElement.classList.add(
+          isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
+        );
+
+        // Start continuous rolling animation
+        continuousRollTick.current = setInterval(() => {
+          const roll = getRandomNumber(1, 6);
+          dieElement.dataset.roll = roll.toString();
+        }, 400);
+      }
+    } else {
+      // Clear continuous rolling when not waiting
+      if (continuousRollTick.current) {
+        clearInterval(continuousRollTick.current);
+        continuousRollTick.current = undefined;
+      }
+    }
+
+    return () => {
+      if (continuousRollTick.current) {
+        clearInterval(continuousRollTick.current);
+        continuousRollTick.current = undefined;
+      }
+    };
+  }, [waitingForResult, styles]);
 
   // console.log("[Dice.tsx] Render/Re-render. isParentRolling:", isParentRolling);
 
@@ -50,21 +117,10 @@ const Dice: React.FC<DiceProps> = ({
   }, [soundSrc]);
 
   const performRoll = useCallback(() => {
-    // console.log(
-    //   "[Dice.tsx] performRoll called. Current isParentRolling prop:",
-    //   isParentRolling
-    // );
-    if (!dieRef.current || isParentRolling || disabled) {
-      // console.log(
-      //   "[Dice.tsx] performRoll: bailing, dieRef.current:",
-      //   !!dieRef.current,
-      //   "isParentRolling:",
-      //   isParentRolling
-      // );
+    if (!dieRef.current || isParentRolling || disabled || waitingForResult) {
       return;
     }
 
-    // console.log("[Dice.tsx] performRoll: proceeding to roll.");
     setParentIsRolling(true);
     playSound(); // Play the sound effect
 
@@ -81,15 +137,16 @@ const Dice: React.FC<DiceProps> = ({
     const roll = getRandomNumber(1, 6);
     dieElement.dataset.roll = roll.toString();
 
-    // Call onRollComplete after animation duration
-    // This timeout should roughly match the CSS animation duration
-    // The animations are 1.5s and 1.25s. We take the max.
-    setTimeout(() => {
-      setCurrentDisplayValue(roll);
-      onRollCompleteRef.current(roll);
-      setParentIsRolling(false); // Set rolling to false after completion
-    }, 1500);
-  }, [isParentRolling, setParentIsRolling, playSound, styles, disabled]); // Added styles to dependency array
+    // Call onRollComplete with the visual roll value
+    onRollCompleteRef.current(roll);
+  }, [
+    isParentRolling,
+    setParentIsRolling,
+    playSound,
+    styles,
+    disabled,
+    waitingForResult,
+  ]);
 
   useEffect(() => {
     setCurrentDisplayValue(initialValue);
@@ -98,7 +155,7 @@ const Dice: React.FC<DiceProps> = ({
       // Ensure CSS module classes are removed if they were somehow added initially
       dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
     }
-  }, [initialValue, styles]); // Added styles to dependency array
+  }, [initialValue, styles]);
 
   const faces = [
     { side: 1, dots: 1 },
@@ -114,19 +171,25 @@ const Dice: React.FC<DiceProps> = ({
       className={styles.dice} // Use CSS module class name
       onClick={performRoll}
       style={{
-        cursor: disabled || isParentRolling ? "not-allowed" : "pointer",
+        cursor:
+          disabled || isParentRolling || waitingForResult
+            ? "not-allowed"
+            : "pointer",
         opacity: disabled ? 0.5 : 1,
-        pointerEvents: disabled || isParentRolling ? "none" : "auto",
+        pointerEvents:
+          disabled || isParentRolling || waitingForResult ? "none" : "auto",
       }}
       role="button"
-      aria-disabled={disabled}
+      aria-disabled={disabled || waitingForResult}
       tabIndex={0}
       aria-label={
         disabled
           ? "Dice disabled"
-          : isParentRolling
-          ? "Dice rolling"
-          : `Dice showing ${currentDisplayValue}, click to roll`
+          : waitingForResult
+            ? "Waiting for roll result"
+            : isParentRolling
+              ? "Dice rolling"
+              : `Dice showing ${currentDisplayValue}, click to roll`
       }
     >
       <ul

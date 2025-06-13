@@ -40,7 +40,7 @@ type RoomInfo = [
 ];
 
 const PlayerCorner: React.FC<{
-  player: Player;
+  player: Player & { hasRolledInCurrentRound?: boolean };
   isCurrent: boolean;
   isSelf: boolean;
   corner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -49,6 +49,7 @@ const PlayerCorner: React.FC<{
   isRolling: boolean;
   setIsRolling: (isRolling: boolean) => void;
   winner: Player | null;
+  waitingForTransaction: boolean;
 }> = ({
   player,
   isCurrent,
@@ -59,6 +60,7 @@ const PlayerCorner: React.FC<{
   isRolling,
   setIsRolling,
   winner,
+  waitingForTransaction,
 }) => {
   const avatar = (
     <img
@@ -69,7 +71,8 @@ const PlayerCorner: React.FC<{
   );
 
   useEffect(() => {
-    console.log(`Last roll for ${player.name}:`, player.lastRoll);
+    console.log(`Last roll for ${player.name}:`, player.lastPosition);
+    console.log(`Current position for ${player.name}:`, player.position);
   }, [player.lastRoll]);
 
   const diceBox = (
@@ -81,6 +84,7 @@ const PlayerCorner: React.FC<{
           setParentIsRolling={setIsRolling}
           initialValue={diceValue}
           disabled={!isSelf}
+          waitingForResult={waitingForTransaction}
         />
       )}
     </div>
@@ -92,8 +96,26 @@ const PlayerCorner: React.FC<{
 
   const horizontalAlign = corner.includes("left") ? "items-start" : "items-end";
 
+  // Add a status indicator to show if player has rolled this round
+  const statusIndicator = (
+    <div className="absolute -top-6 right-0">
+      {player.hasRolledInCurrentRound ? (
+        <div
+          className="h-4 w-4 rounded-full bg-green-500"
+          title="Rolled this round"
+        />
+      ) : (
+        <div
+          className="h-4 w-4 rounded-full bg-orange-500"
+          title="Needs to roll"
+        />
+      )}
+    </div>
+  );
+
   return (
     <div className={`flex flex-col ${horizontalAlign} space-y-1 mx-2 relative`}>
+      {statusIndicator}
       {player.lastRoll !== undefined &&
         player.lastRoll > 0 &&
         player.lastRoll <= 6 && (
@@ -110,6 +132,21 @@ const PlayerCorner: React.FC<{
       >
         {player.name}
       </span>
+    </div>
+  );
+};
+
+// Add a Timer component
+const RoundTimer: React.FC<{ minutes: number; seconds: number }> = ({
+  minutes,
+  seconds,
+}) => {
+  return (
+    <div className="z-10 absolute top-4 left-1/2 transform -translate-x-1/2 bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg px-4 py-2 text-white text-center">
+      <div className="text-sm font-semibold mb-1">Next Round In</div>
+      <div className="text-xl font-bold">
+        {minutes}:{seconds.toString().padStart(2, "0")}
+      </div>
     </div>
   );
 };
@@ -184,6 +221,9 @@ const SnakesAndLaddersPage: React.FC = () => {
 
   const [diceValue, setDiceValue] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
+  const [waitingForTransaction, setWaitingForTransaction] =
+    useState<boolean>(false);
+  const [lastTxTimestamp, setLastTxTimestamp] = useState<number>(0);
 
   const winnerAddress =
     roomInfo &&
@@ -198,6 +238,43 @@ const SnakesAndLaddersPage: React.FC = () => {
 
   const { writeContract } = useWriteContract();
 
+  // Instead of using useWatchContractEvent, use player info polling to detect roll results
+  useEffect(() => {
+    if (!waitingForTransaction) return;
+
+    // Find the current player's index in the players array
+    const currentPlayerIndex = players.findIndex(
+      (p) => p.id.toLowerCase() === address?.toLowerCase()
+    );
+
+    if (currentPlayerIndex === -1) return;
+
+    // Get the player's info from the query result
+    const playerInfo = playerInfoQueries[currentPlayerIndex].data as
+      | readonly [number, bigint, number]
+      | undefined;
+
+    // If we have player info and a roll value
+    if (playerInfo && playerInfo[2] !== undefined) {
+      const serverRoll = Number(playerInfo[2]);
+      const timestamp = Date.now();
+
+      // Only update if we have a new roll value after the last transaction
+      if (timestamp - lastTxTimestamp > 2000 && serverRoll > 0) {
+        console.log(`Roll detected from server: ${serverRoll}`);
+        setDiceValue(serverRoll);
+        setIsRolling(false);
+        setWaitingForTransaction(false);
+      }
+    }
+  }, [
+    playerInfoQueries,
+    address,
+    waitingForTransaction,
+    players,
+    lastTxTimestamp,
+  ]);
+
   const { data: currentPlayerAddressRaw } = useReadContract({
     address: snakeGameContractInfo.address as `0x${string}`,
     abi: snakeGameContractInfo.abi,
@@ -205,7 +282,6 @@ const SnakesAndLaddersPage: React.FC = () => {
     args: [BigInt(numericRoomId)],
     query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
   });
-  // cast to string for lowercase comparison
   const currentPlayerAddress =
     (currentPlayerAddressRaw as `0x${string}` | undefined) ?? "";
 
@@ -217,25 +293,32 @@ const SnakesAndLaddersPage: React.FC = () => {
     currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
   const handleDiceRollComplete = async (rolledValue: number) => {
-    setDiceValue(rolledValue);
-
+    // We'll keep the visual dice roll, but also start the contract interaction
     if (!isConnected || !address) {
       setIsRolling(false);
       return;
     }
 
     try {
+      // Set waiting for transaction to true to keep the dice rolling
+      setWaitingForTransaction(true);
+      setLastTxTimestamp(Date.now());
+
       writeContract({
         address: snakeGameContractInfo.address as `0x${string}`,
         abi: snakeGameContractInfo.abi,
         functionName: "rollDice",
         args: [BigInt(numericRoomId)],
+        gas: 200000n,
       });
+
+      // Note: We don't set isRolling to false or waitingForTransaction to false here
+      // The useEffect will handle that when the playerInfo is updated
     } catch (error) {
       console.error("Roll dice error", error);
+      setIsRolling(false);
+      setWaitingForTransaction(false);
     }
-
-    setIsRolling(false);
   };
 
   const getPlayersInCell = (displayedCellNumber: number) => {
@@ -246,7 +329,6 @@ const SnakesAndLaddersPage: React.FC = () => {
     navigate("/explore");
   };
 
-  // compute wait time until next 10-minute interval
   const gameStartTimeRaw = roomInfo
     ? ((roomInfo as RoomInfoType)[5] as bigint)
     : BigInt(0);
@@ -255,6 +337,54 @@ const SnakesAndLaddersPage: React.FC = () => {
   const elapsedMins = Math.floor(elapsedSecs / 60);
   const remainderMins = elapsedMins % 10;
   const waitTime = (10 - remainderMins) % 10;
+
+  // Add state for seconds countdown
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+
+  // Add effect to update the countdown timer every second
+  useEffect(() => {
+    if (!gameStartTime) return;
+
+    const updateTimer = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const elapsed = now - gameStartTime;
+      const elapsedMinutes = Math.floor(elapsed / 60);
+      const currentSlot = Math.floor(elapsedMinutes / 10);
+      const nextSlotTime = gameStartTime + (currentSlot + 1) * 10 * 60;
+      const remaining = nextSlotTime - now;
+
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+
+      setRemainingSeconds(secs);
+    };
+
+    updateTimer();
+    const timerId = setInterval(updateTimer, 1000);
+    return () => clearInterval(timerId);
+  }, [gameStartTime]);
+
+  // Calculate the current slot (round)
+  const currentSlot =
+    gameStartTime > 0
+      ? Math.floor((Math.floor(Date.now() / 1000) - gameStartTime) / 600) // 10 minutes = 600 seconds
+      : 0;
+
+  // Use a different approach to access player info
+  const enhancedPlayers = players.map((player, index) => {
+    // Simply use the player's index to access the corresponding query info
+    const info = playerInfoQueries[index]?.data as
+      | readonly [number, bigint, number, bigint]
+      | undefined;
+
+    const lastRollSlot = info ? Number(info[3]) : undefined;
+    const hasRolledInCurrentRound = lastRollSlot === currentSlot;
+
+    return {
+      ...player,
+      hasRolledInCurrentRound,
+    };
+  });
 
   return (
     <div className="fixed inset-0 overflow-hidden flex flex-col bg-[#0d0805]">
@@ -284,9 +414,13 @@ const SnakesAndLaddersPage: React.FC = () => {
       </div>
 
       <div className="flex-grow flex flex-col justify-between p-2 sm:p-4 relative">
-        {/* Top Players */}
+        {/* Timer display */}
+        {gameStartTime > 0 && (
+          <RoundTimer minutes={waitTime} seconds={remainingSeconds} />
+        )}
+
         <div className="flex justify-between items-start mb-2 sm:mb-4">
-          {players.slice(2).map((player, idx) => (
+          {enhancedPlayers.slice(2).map((player, idx) => (
             <PlayerCorner
               key={player.id}
               player={player}
@@ -300,30 +434,16 @@ const SnakesAndLaddersPage: React.FC = () => {
               setIsRolling={setIsRolling}
               winner={winner}
               corner={idx === 0 ? "top-left" : "top-right"}
+              waitingForTransaction={waitingForTransaction}
             />
           ))}
         </div>
 
-        {/* Game Board */}
         <div className="flex-grow flex items-center justify-center">
           <div className="w-auto h-full aspect-square bg-[#1a0f09] border-2 border-[#8b4513] relative">
             <div className="grid grid-cols-10 gap-[1px] w-full h-full">
               {snakedCells.map((displayedNumber, index) => {
                 const playersInCell = getPlayersInCell(displayedNumber);
-                // const isSnakeStart =
-                //   Object.keys(SNAKES_AND_LADDERS)
-                //     .map(Number)
-                //     .includes(displayedNumber) &&
-                //   SNAKES_AND_LADDERS[
-                //     displayedNumber as keyof typeof SNAKES_AND_LADDERS
-                //   ] < displayedNumber;
-                // const isLadderStart =
-                //   Object.keys(SNAKES_AND_LADDERS)
-                //     .map(Number)
-                //     .includes(displayedNumber) &&
-                //   SNAKES_AND_LADDERS[
-                //     displayedNumber as keyof typeof SNAKES_AND_LADDERS
-                //   ] > displayedNumber;
 
                 let cellBgColor = index % 2 === 0 ? "#2c1810" : "#3b2010";
 
@@ -378,17 +498,17 @@ const SnakesAndLaddersPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Players */}
         <div className="relative mt-2 sm:mt-4 flex justify-between items-center">
-          {players[0] && (
+          {enhancedPlayers[0] && (
             <PlayerCorner
-              player={players[0]}
+              player={enhancedPlayers[0]}
               isCurrent={
-                players[0].id.toLowerCase() ===
+                enhancedPlayers[0].id.toLowerCase() ===
                 currentPlayerAddress.toLowerCase()
               }
               isSelf={
-                players[0].id.toLowerCase() === (address ?? "").toLowerCase()
+                enhancedPlayers[0].id.toLowerCase() ===
+                (address ?? "").toLowerCase()
               }
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
@@ -396,17 +516,19 @@ const SnakesAndLaddersPage: React.FC = () => {
               setIsRolling={setIsRolling}
               winner={winner}
               corner="bottom-left"
+              waitingForTransaction={waitingForTransaction}
             />
           )}
-          {players[1] && (
+          {enhancedPlayers[1] && (
             <PlayerCorner
-              player={players[1]}
+              player={enhancedPlayers[1]}
               isCurrent={
-                players[1].id.toLowerCase() ===
+                enhancedPlayers[1].id.toLowerCase() ===
                 currentPlayerAddress.toLowerCase()
               }
               isSelf={
-                players[1].id.toLowerCase() === (address ?? "").toLowerCase()
+                enhancedPlayers[1].id.toLowerCase() ===
+                (address ?? "").toLowerCase()
               }
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
@@ -414,6 +536,7 @@ const SnakesAndLaddersPage: React.FC = () => {
               setIsRolling={setIsRolling}
               winner={winner}
               corner="bottom-right"
+              waitingForTransaction={waitingForTransaction}
             />
           )}
           <div className="absolute left-1/2 transform -translate-x-1/2">
