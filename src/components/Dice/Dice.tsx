@@ -7,6 +7,7 @@ interface DiceProps {
   setParentIsRolling: (rolling: boolean) => void;
   initialValue?: number;
   soundSrc?: string; // Optional prop for the sound file source
+  disabled?: boolean; // Optional prop to disable rolling
 }
 
 const getRandomNumber = (min: number, max: number): number => {
@@ -21,6 +22,7 @@ const Dice: React.FC<DiceProps> = ({
   setParentIsRolling,
   initialValue = 1,
   soundSrc = "/dice_roll.mp3", // Default sound file path
+  disabled = false, // Disable rolling when true
 }) => {
   const dieRef = useRef<HTMLUListElement>(null);
   const [currentDisplayValue, setCurrentDisplayValue] =
@@ -52,7 +54,7 @@ const Dice: React.FC<DiceProps> = ({
     //   "[Dice.tsx] performRoll called. Current isParentRolling prop:",
     //   isParentRolling
     // );
-    if (!dieRef.current || isParentRolling) {
+    if (!dieRef.current || isParentRolling || disabled) {
       // console.log(
       //   "[Dice.tsx] performRoll: bailing, dieRef.current:",
       //   !!dieRef.current,
@@ -87,7 +89,7 @@ const Dice: React.FC<DiceProps> = ({
       onRollCompleteRef.current(roll);
       setParentIsRolling(false); // Set rolling to false after completion
     }, 1500);
-  }, [isParentRolling, setParentIsRolling, playSound, styles]); // Added styles to dependency array
+  }, [isParentRolling, setParentIsRolling, playSound, styles, disabled]); // Added styles to dependency array
 
   useEffect(() => {
     setCurrentDisplayValue(initialValue);
@@ -112,12 +114,17 @@ const Dice: React.FC<DiceProps> = ({
       className={styles.dice} // Use CSS module class name
       onClick={performRoll}
       style={{
-        cursor: isParentRolling ? "not-allowed" : "pointer",
+        cursor: disabled || isParentRolling ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled || isParentRolling ? "none" : "auto",
       }}
       role="button"
+      aria-disabled={disabled}
       tabIndex={0}
       aria-label={
-        isParentRolling
+        disabled
+          ? "Dice disabled"
+          : isParentRolling
           ? "Dice rolling"
           : `Dice showing ${currentDisplayValue}, click to roll`
       }

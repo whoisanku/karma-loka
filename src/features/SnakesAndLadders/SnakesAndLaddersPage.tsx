@@ -74,12 +74,13 @@ const PlayerCorner: React.FC<{
 
   const diceBox = (
     <div className="w-12 h-12 border-2 border-[#8b4513] rounded-lg flex items-center justify-center bg-[#2c1810]">
-      {isCurrent && !winner && (
+      {isCurrent && (
         <Dice
           onRollComplete={handleDiceRollComplete}
           isParentRolling={isRolling}
           setParentIsRolling={setIsRolling}
           initialValue={diceValue}
+          disabled={!isSelf}
         />
       )}
     </div>
