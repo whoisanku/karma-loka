@@ -16,7 +16,7 @@ type RoomInfoType = readonly [
   unknown,
   unknown,
   `0x${string}`,
-  string
+  string,
 ];
 
 interface Player {
@@ -36,7 +36,7 @@ type RoomInfo = [
   started: boolean,
   gameStartTime: bigint,
   winner: `0x${string}`,
-  metadataUri: string
+  metadataUri: string,
 ];
 
 const PlayerCorner: React.FC<{
@@ -93,14 +93,16 @@ const PlayerCorner: React.FC<{
 
   return (
     <div className={`flex flex-col ${horizontalAlign} space-y-1 mx-2 relative`}>
-      {player.lastRoll !== undefined && player.lastRoll > 0 && (
-        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-          <div className="relative bg-gray-800 text-white text-sm w-40 px-4 py-2 rounded text-center">
-            I rolled {player.position - player.lastPosition} and reached to {player.position}
-            <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-800" />
+      {player.lastRoll !== undefined &&
+        player.lastRoll > 0 &&
+        player.lastRoll <= 6 && (
+          <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+            <div className="relative bg-gray-800 text-white text-sm w-40 px-4 py-2 rounded text-center">
+              I rolled {player.lastRoll} and reached to {player.position}
+              <div className="absolute bottom-[-6px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-800" />
+            </div>
           </div>
-        </div>
-      )}
+        )}
       <div className="flex items-center space-x-3">{arrangement}</div>
       <span
         className={`font-['MorrisRoman'] mx-2 text-sm ${isCurrent ? "text-yellow-400" : "text-white"}`}
@@ -203,9 +205,15 @@ const SnakesAndLaddersPage: React.FC = () => {
     query: { enabled: numericRoomId > 0, refetchInterval: 5000 },
   });
   // cast to string for lowercase comparison
-  const currentPlayerAddress = (currentPlayerAddressRaw as `0x${string}` | undefined) ?? "";
+  const currentPlayerAddress =
+    (currentPlayerAddressRaw as `0x${string}` | undefined) ?? "";
 
-  const currentPlayer = players.find((p) => p.id === currentPlayerAddress) || null;
+  const currentPlayer =
+    players.find((p) => p.id === currentPlayerAddress) || null;
+  const isMyTurn =
+    !!address &&
+    !!currentPlayerAddress &&
+    currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
   const handleDiceRollComplete = async (rolledValue: number) => {
     setDiceValue(rolledValue);
@@ -238,7 +246,9 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   // compute wait time until next 10-minute interval
-  const gameStartTimeRaw = roomInfo ? ((roomInfo as RoomInfoType)[5] as bigint) : BigInt(0);
+  const gameStartTimeRaw = roomInfo
+    ? ((roomInfo as RoomInfoType)[5] as bigint)
+    : BigInt(0);
   const gameStartTime = Number(gameStartTimeRaw);
   const elapsedSecs = Math.floor(Date.now() / 1000) - gameStartTime;
   const elapsedMins = Math.floor(elapsedSecs / 60);
@@ -279,7 +289,9 @@ const SnakesAndLaddersPage: React.FC = () => {
             <PlayerCorner
               key={player.id}
               player={player}
-              isCurrent={player.id.toLowerCase() === currentPlayerAddress.toLowerCase()}
+              isCurrent={
+                player.id.toLowerCase() === currentPlayerAddress.toLowerCase()
+              }
               isSelf={player.id.toLowerCase() === (address ?? "").toLowerCase()}
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
@@ -370,8 +382,13 @@ const SnakesAndLaddersPage: React.FC = () => {
           {players[0] && (
             <PlayerCorner
               player={players[0]}
-              isCurrent={players[0].id.toLowerCase() === currentPlayerAddress.toLowerCase()}
-              isSelf={players[0].id.toLowerCase() === (address ?? "").toLowerCase()}
+              isCurrent={
+                players[0].id.toLowerCase() ===
+                currentPlayerAddress.toLowerCase()
+              }
+              isSelf={
+                players[0].id.toLowerCase() === (address ?? "").toLowerCase()
+              }
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
               isRolling={isRolling}
@@ -383,8 +400,13 @@ const SnakesAndLaddersPage: React.FC = () => {
           {players[1] && (
             <PlayerCorner
               player={players[1]}
-              isCurrent={players[1].id.toLowerCase() === currentPlayerAddress.toLowerCase()}
-              isSelf={players[1].id.toLowerCase() === (address ?? "").toLowerCase()}
+              isCurrent={
+                players[1].id.toLowerCase() ===
+                currentPlayerAddress.toLowerCase()
+              }
+              isSelf={
+                players[1].id.toLowerCase() === (address ?? "").toLowerCase()
+              }
               diceValue={diceValue}
               handleDiceRollComplete={handleDiceRollComplete}
               isRolling={isRolling}
@@ -394,7 +416,25 @@ const SnakesAndLaddersPage: React.FC = () => {
             />
           )}
           <div className="absolute left-1/2 transform -translate-x-1/2">
-            <span className="text-white text-md">Next roll in {waitTime} m</span>
+            {!winner && (
+              <>
+                {currentPlayer ? (
+                  isMyTurn ? (
+                    <span className="text-green-400 text-lg font-bold animate-pulse">
+                      Your turn to roll!
+                    </span>
+                  ) : (
+                    <span className="text-white text-md">
+                      Waiting for {currentPlayer.name} to roll...
+                    </span>
+                  )
+                ) : (
+                  <span className="text-white text-md">
+                    Next roll in {waitTime} m
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
 
