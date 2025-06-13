@@ -87,7 +87,8 @@ const Dice: React.FC<DiceProps> = ({
     setTimeout(() => {
       setCurrentDisplayValue(roll);
       onRollCompleteRef.current(roll);
-      setParentIsRolling(false); // Set rolling to false after completion
+      // Parent component will decide when to stop rolling, typically after
+      // transaction confirmation.
     }, 1500);
   }, [isParentRolling, setParentIsRolling, playSound, styles, disabled]); // Added styles to dependency array
 

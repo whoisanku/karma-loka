@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useReadContract, useWriteContract, useAccount } from "wagmi";
+import {
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+} from "wagmi";
 import Dice from "../../components/Dice/Dice";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
@@ -196,7 +201,32 @@ const SnakesAndLaddersPage: React.FC = () => {
 
   const snakedCells = generateSnakedCells();
 
-  const { writeContract } = useWriteContract();
+  const {
+    data: rollHash,
+    error: rollError,
+    writeContract: writeRoll,
+    reset: resetRoll,
+  } = useWriteContract();
+
+  const { isSuccess: isRollSuccess, error: rollReceiptError } =
+    useWaitForTransactionReceipt({
+      hash: rollHash,
+      confirmations: 1,
+      query: { enabled: !!rollHash },
+    });
+
+  useEffect(() => {
+    if (isRollSuccess) {
+      setIsRolling(false);
+      resetRoll();
+    }
+  }, [isRollSuccess, resetRoll]);
+
+  useEffect(() => {
+    if (rollError || rollReceiptError) {
+      setIsRolling(false);
+    }
+  }, [rollError, rollReceiptError]);
 
   const { data: currentPlayerAddressRaw } = useReadContract({
     address: snakeGameContractInfo.address as `0x${string}`,
@@ -216,6 +246,10 @@ const SnakesAndLaddersPage: React.FC = () => {
     !!currentPlayerAddress &&
     currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
+  useEffect(() => {
+    setDiceValue(1);
+  }, [currentPlayerAddress]);
+
   const handleDiceRollComplete = async (rolledValue: number) => {
     setDiceValue(rolledValue);
 
@@ -225,17 +259,17 @@ const SnakesAndLaddersPage: React.FC = () => {
     }
 
     try {
-      writeContract({
+      await writeRoll({
         address: snakeGameContractInfo.address as `0x${string}`,
         abi: snakeGameContractInfo.abi,
         functionName: "rollDice",
         args: [BigInt(numericRoomId)],
       });
+      // waitRoll will handle setting isRolling to false once confirmed
     } catch (error) {
       console.error("Roll dice error", error);
+      setIsRolling(false);
     }
-
-    setIsRolling(false);
   };
 
   const getPlayersInCell = (displayedCellNumber: number) => {
