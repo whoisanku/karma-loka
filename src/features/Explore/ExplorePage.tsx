@@ -174,15 +174,16 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           </button>
         );
       } else {
-        // User hasn't joined and game started - show disabled Started button
+        // User hasn't joined and game started - allow viewing the game
         return (
           <button
             type="button"
-            disabled
-            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
-                     text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
+            onClick={() => handleRollClick(game)}
+            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300
+                     text-[#2c1810] bg-gradient-to-r from-[#9ca3af] to-[#d1d5db] border-[#6b7280]
+                     hover:from-[#d1d5db] hover:to-[#9ca3af]"
           >
-            Started
+            View
           </button>
         );
       }
