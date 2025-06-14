@@ -36,7 +36,6 @@ const Dice: React.FC<DiceProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [display, setDisplay] = useState(initialValue);
   const tick = useRef<NodeJS.Timeout>();
-  const continuousRollTick = useRef<NodeJS.Timeout>();
   const [pauseAfterStop, setPauseAfterStop] = useState(false);
 
   // Effect for handling spinning state
@@ -64,45 +63,10 @@ const Dice: React.FC<DiceProps> = ({
     return () => clearInterval(tick.current);
   }, [spinning, stopAt]);
 
-  // Effect to handle continuous rolling while waiting for transaction result
-  useEffect(() => {
-    if (waitingForResult && dieRef.current) {
-      // Don't clear existing spinning animation
-      if (!continuousRollTick.current) {
-        const dieElement = dieRef.current;
-
-        // Make sure the dice is in rolling animation state
-        const isCurrentlyOdd = dieElement.classList.contains(
-          styles["odd-roll"]
-        );
-        dieElement.classList.remove(
-          isCurrentlyOdd ? styles["odd-roll"] : styles["even-roll"]
-        );
-        dieElement.classList.add(
-          isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
-        );
-
-        // Start continuous rolling animation
-        continuousRollTick.current = setInterval(() => {
-          const roll = getRandomNumber(1, 6);
-          dieElement.dataset.roll = roll.toString();
-        }, 400);
-      }
-    } else {
-      // Clear continuous rolling when not waiting
-      if (continuousRollTick.current) {
-        clearInterval(continuousRollTick.current);
-        continuousRollTick.current = undefined;
-      }
-    }
-
-    return () => {
-      if (continuousRollTick.current) {
-        clearInterval(continuousRollTick.current);
-        continuousRollTick.current = undefined;
-      }
-    };
-  }, [waitingForResult, styles]);
+  // Continuous rolling handled by the main spinning effect. The previous
+  // waitingForResult logic created a second interval which caused uneven
+  // animation speed. Removing it ensures a single consistent interval while
+  // the dice is rolling.
 
   // console.log("[Dice.tsx] Render/Re-render. isParentRolling:", isParentRolling);
 
