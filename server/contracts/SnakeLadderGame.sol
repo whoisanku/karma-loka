@@ -21,6 +21,7 @@ contract SnakeGame {
         mapping(address => uint256) lastRollSlot;
         mapping(address => uint8) prasadMeter;
         mapping(address => uint8) lastPositions;
+        mapping(address => uint8) lastRollValue;
         uint256 currentPlayerIndex;
         address winner;
         string metadataUri;
@@ -128,7 +129,7 @@ contract SnakeGame {
     function getCurrentSlot(Room storage room) internal view returns (uint256) {
         require(room.started, "Game not started");
         // return (block.timestamp - room.gameStartTime) / 1 days;
-        return (block.timestamp - room.gameStartTime) / 10 minutes;
+        return (block.timestamp - room.gameStartTime) / 5 minutes;
     }
 
     function applySnakeLadder(uint8 position) internal view returns (uint8) {
@@ -138,7 +139,7 @@ contract SnakeGame {
         return position;
     }
 
-    function rollDice(uint256 roomId) public {
+    function rollDice(uint256 roomId) public returns (uint8) {
         Room storage room = roomStorage[roomId];
         require(room.started, "Not started");
         require(room.hasJoined[msg.sender], "Not joined");
@@ -172,11 +173,13 @@ contract SnakeGame {
             emit GameWon(roomId, msg.sender);
         }
 
+        room.lastRollValue[msg.sender] = finalRoll;
         room.lastRollSlot[msg.sender] = currentSlot;
         emit DiceRolled(roomId, msg.sender, finalRoll);
         if (room.winner == address(0)) {
             room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
         }
+        return finalRoll;
     }
 
     function autoRoll(uint256 roomId) external {
@@ -213,6 +216,7 @@ contract SnakeGame {
                     return;
                 }
 
+                room.lastRollValue[player] = finalRoll;
                 room.lastRollSlot[player] = currentSlot;
                 emit DiceRolled(roomId, player, finalRoll);
             }
@@ -259,7 +263,8 @@ contract SnakeGame {
     function getUserInfo(uint256 roomId, address player) external view returns (
         uint8 lastPosition,
         uint8 currentPosition,
-        uint256 lastRoll,
+        uint256 lastRollSlot,
+        uint8 lastRoll,
         uint8 prasad
     ) {
         Room storage room = roomStorage[roomId];
@@ -268,6 +273,7 @@ contract SnakeGame {
             room.lastPositions[player],
             room.positions[player],
             room.lastRollSlot[player],
+            room.lastRollValue[player],
             room.prasadMeter[player]
         );
     }

@@ -37,6 +37,7 @@ const Dice: React.FC<DiceProps> = ({
   const [display, setDisplay] = useState(initialValue);
   const tick = useRef<NodeJS.Timeout>();
   const continuousRollTick = useRef<NodeJS.Timeout>();
+  const [pauseAfterStop, setPauseAfterStop] = useState(false);
 
   // Effect for handling spinning state
   useEffect(() => {
@@ -48,9 +49,16 @@ const Dice: React.FC<DiceProps> = ({
       }, 400);
     } else {
       clearInterval(tick.current);
-      if (stopAt) {
-        dieRef.current!.dataset.roll = stopAt.toString();
+      // Stop any continuous rolling and apply final face
+      if (dieRef.current && stopAt != null) {
+        // Remove previous roll classes and add even-roll for final transform
+        dieRef.current.classList.remove(styles['odd-roll'], styles['even-roll']);
+        dieRef.current.classList.add(styles['even-roll']);
+        dieRef.current.dataset.roll = stopAt.toString();
         setDisplay(stopAt);
+        // Pause interactions for 3 seconds
+        setPauseAfterStop(true);
+        setTimeout(() => setPauseAfterStop(false), 3000);
       }
     }
     return () => clearInterval(tick.current);
@@ -172,15 +180,15 @@ const Dice: React.FC<DiceProps> = ({
       onClick={performRoll}
       style={{
         cursor:
-          disabled || isParentRolling || waitingForResult
+          disabled || isParentRolling || waitingForResult || pauseAfterStop
             ? "not-allowed"
             : "pointer",
         opacity: disabled ? 0.5 : 1,
         pointerEvents:
-          disabled || isParentRolling || waitingForResult ? "none" : "auto",
+          disabled || isParentRolling || waitingForResult || pauseAfterStop ? "none" : "auto",
       }}
       role="button"
-      aria-disabled={disabled || waitingForResult}
+      aria-disabled={disabled || waitingForResult || pauseAfterStop}
       tabIndex={0}
       aria-label={
         disabled

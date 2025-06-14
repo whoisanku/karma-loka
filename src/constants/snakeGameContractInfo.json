@@ -1,5 +1,5 @@
 {
-  "address": "0x4A91cF9373F06ac94643F60391706F887E1e52b8",
+  "address": "0x866153A0c2dACA44200863E23c50FEfcfc676402",
   "abi": [
     {
       "inputs": [
@@ -286,8 +286,13 @@
         },
         {
           "internalType": "uint256",
-          "name": "lastRoll",
+          "name": "lastRollSlot",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint8",
+          "name": "lastRoll",
+          "type": "uint8"
         },
         {
           "internalType": "uint8",
@@ -357,7 +362,13 @@
         }
       ],
       "name": "rollDice",
-      "outputs": [],
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "function"
     },
