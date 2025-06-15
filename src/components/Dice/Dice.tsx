@@ -13,6 +13,8 @@ interface DiceProps {
   waitingForResult?: boolean; // New prop to indicate waiting for transaction result
 }
 
+const ROLL_INTERVAL = 400; // Consistent interval for all rolling animations
+
 const getRandomNumber = (min: number, max: number): number => {
   min = Math.ceil(min);
   max = Math.floor(max);
@@ -34,145 +36,103 @@ const Dice: React.FC<DiceProps> = ({
   const [currentDisplayValue, setCurrentDisplayValue] =
     useState<number>(initialValue);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [display, setDisplay] = useState(initialValue);
-  const tick = useRef<NodeJS.Timeout>();
-  const continuousRollTick = useRef<NodeJS.Timeout>();
+  const rollInterval = useRef<NodeJS.Timeout>();
   const [pauseAfterStop, setPauseAfterStop] = useState(false);
 
-  // Effect for handling spinning state
+  // Single effect to handle all rolling animations
   useEffect(() => {
-    if (spinning) {
-      // start an interval that re-applies the CSS roll class every 400 ms
-      tick.current = setInterval(() => {
-        const roll = getRandomNumber(1, 6);
-        dieRef.current!.dataset.roll = roll.toString();
-      }, 400);
+    if (!dieRef.current) return;
+
+    const shouldRoll = spinning || waitingForResult;
+
+    if (shouldRoll) {
+      // Clear any existing interval
+      if (rollInterval.current) {
+        clearInterval(rollInterval.current);
+      }
+
+      // Start rolling animation
+      const roll = () => {
+        if (!dieRef.current) return;
+
+        const newValue = getRandomNumber(1, 6);
+        dieRef.current.dataset.roll = newValue.toString();
+        setCurrentDisplayValue(newValue);
+
+        // Toggle roll direction for visual variety
+        const isCurrentlyOdd = dieRef.current.classList.contains(styles["odd-roll"]);
+        dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
+        dieRef.current.classList.add(isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]);
+      };
+
+      // Initial roll
+      roll();
+      
+      // Set up consistent interval
+      rollInterval.current = setInterval(roll, ROLL_INTERVAL);
     } else {
-      clearInterval(tick.current);
-      // Stop any continuous rolling and apply final face
-      if (dieRef.current && stopAt != null) {
-        // Remove previous roll classes and add even-roll for final transform
-        dieRef.current.classList.remove(styles['odd-roll'], styles['even-roll']);
-        dieRef.current.classList.add(styles['even-roll']);
+      // Stop rolling animation
+      if (rollInterval.current) {
+        clearInterval(rollInterval.current);
+      }
+
+      // Set final value if provided
+      if (typeof stopAt === 'number') {
+        dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
+        dieRef.current.classList.add(styles["even-roll"]);
         dieRef.current.dataset.roll = stopAt.toString();
-        setDisplay(stopAt);
-        // Pause interactions for 3 seconds
+        setCurrentDisplayValue(stopAt);
         setPauseAfterStop(true);
         setTimeout(() => setPauseAfterStop(false), 3000);
       }
     }
-    return () => clearInterval(tick.current);
-  }, [spinning, stopAt]);
-
-  // Effect to handle continuous rolling while waiting for transaction result
-  useEffect(() => {
-    if (waitingForResult && dieRef.current) {
-      // Don't clear existing spinning animation
-      if (!continuousRollTick.current) {
-        const dieElement = dieRef.current;
-
-        // Make sure the dice is in rolling animation state
-        const isCurrentlyOdd = dieElement.classList.contains(
-          styles["odd-roll"]
-        );
-        dieElement.classList.remove(
-          isCurrentlyOdd ? styles["odd-roll"] : styles["even-roll"]
-        );
-        dieElement.classList.add(
-          isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
-        );
-
-        // Start continuous rolling animation
-        continuousRollTick.current = setInterval(() => {
-          const roll = getRandomNumber(1, 6);
-          dieElement.dataset.roll = roll.toString();
-        }, 400);
-      }
-    } else {
-      // Clear continuous rolling when not waiting
-      if (continuousRollTick.current) {
-        clearInterval(continuousRollTick.current);
-        continuousRollTick.current = undefined;
-      }
-    }
 
     return () => {
-      if (continuousRollTick.current) {
-        clearInterval(continuousRollTick.current);
-        continuousRollTick.current = undefined;
+      if (rollInterval.current) {
+        clearInterval(rollInterval.current);
       }
     };
-  }, [waitingForResult, styles]);
+  }, [spinning, waitingForResult, stopAt, styles]);
 
   // console.log("[Dice.tsx] Render/Re-render. isParentRolling:", isParentRolling);
 
-  const onRollCompleteRef = useRef(onRollComplete);
-  useEffect(() => {
-    onRollCompleteRef.current = onRollComplete;
-  }, [onRollComplete]);
-
   const playSound = useCallback(() => {
-    if (soundSrc) {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(soundSrc);
-      }
-      // Ensure sound plays from the beginning if it was already played
+    if (!soundSrc || !audioRef.current) {
+      audioRef.current = new Audio(soundSrc);
+    }
+    if (audioRef.current) {
       audioRef.current.currentTime = 0;
-      audioRef.current
-        .play()
-        .catch((error) => console.error("Error playing sound:", error));
+      audioRef.current.play().catch(error => console.error("Error playing sound:", error));
     }
   }, [soundSrc]);
 
   const performRoll = useCallback(() => {
-    if (!dieRef.current || isParentRolling || disabled || waitingForResult) {
+    if (!dieRef.current || isParentRolling || disabled || waitingForResult || pauseAfterStop) {
       return;
     }
 
     setParentIsRolling(true);
-    playSound(); // Play the sound effect
-
-    const dieElement = dieRef.current;
-    // Use CSS module class names
-    const isCurrentlyOdd = dieElement.classList.contains(styles["odd-roll"]);
-    dieElement.classList.remove(
-      isCurrentlyOdd ? styles["odd-roll"] : styles["even-roll"]
-    );
-    dieElement.classList.add(
-      isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
-    );
+    playSound();
 
     const roll = getRandomNumber(1, 6);
-    dieElement.dataset.roll = roll.toString();
+    if (dieRef.current) {
+      const isCurrentlyOdd = dieRef.current.classList.contains(styles["odd-roll"]);
+      dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
+      dieRef.current.classList.add(isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]);
+      dieRef.current.dataset.roll = roll.toString();
+    }
 
-    // Call onRollComplete with the visual roll value
-    onRollCompleteRef.current(roll);
-  }, [
-    isParentRolling,
-    setParentIsRolling,
-    playSound,
-    styles,
-    disabled,
-    waitingForResult,
-  ]);
+    onRollComplete(roll);
+  }, [isParentRolling, setParentIsRolling, playSound, disabled, waitingForResult, pauseAfterStop, onRollComplete, styles]);
 
+  // Initialize dice
   useEffect(() => {
-    setCurrentDisplayValue(initialValue);
     if (dieRef.current) {
       dieRef.current.dataset.roll = initialValue.toString();
-      // Ensure CSS module classes are removed if they were somehow added initially
       dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
+      setCurrentDisplayValue(initialValue);
     }
-  }, [initialValue, styles]);
-
-  const faces = [
-    { side: 1, dots: 1 },
-    { side: 2, dots: 2 },
-    { side: 3, dots: 3 },
-    { side: 4, dots: 4 },
-    { side: 5, dots: 5 },
-    { side: 6, dots: 6 },
-  ];
+  }, [initialValue]);
 
   return (
     <div
@@ -205,14 +165,14 @@ const Dice: React.FC<DiceProps> = ({
         ref={dieRef}
         data-roll={currentDisplayValue.toString()}
       >
-        {faces.map((face) => (
+        {[1, 2, 3, 4, 5, 6].map((side) => (
           <li
+            key={side}
             className={styles["die-item"]} // Use CSS module class name
-            data-side={face.side.toString()}
-            key={face.side}
+            data-side={side.toString()}
           >
-            {Array.from({ length: face.dots }).map((_, i) => (
-              <span className={styles.dot} key={i}></span> // Use CSS module class name
+            {Array.from({ length: side }).map((_, i) => (
+              <span key={i} className={styles.dot}></span> // Use CSS module class name
             ))}
           </li>
         ))}

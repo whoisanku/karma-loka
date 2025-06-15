@@ -29,6 +29,8 @@ contract SnakeGame {
 
     mapping(uint256 => Room) private roomStorage;
     uint256 public roomCount;
+    mapping(address => uint256) public leaderboard; // Track number of wins per player
+    address[] private leaderboardPlayers; // Array to track all players who have won at least once
 
     mapping(uint8 => uint8) private snakeLadderMap;
     address private owner;
@@ -39,6 +41,7 @@ contract SnakeGame {
     event Participated(uint256 indexed roomId, address player);
     event DiceRolled(uint256 indexed roomId, address player, uint8 roll);
     event GameWon(uint256 indexed roomId, address winner);
+    event LeaderboardUpdated(address indexed player, uint256 newWinCount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this");
@@ -170,7 +173,12 @@ contract SnakeGame {
         if (newPos >= 100) {
             room.winner = msg.sender;
             stakeToken.safeTransfer(msg.sender, room.stakeAmount * room.players.length);
+            if (leaderboard[msg.sender] == 0) {
+                leaderboardPlayers.push(msg.sender);
+            }
+            leaderboard[msg.sender] += 1;
             emit GameWon(roomId, msg.sender);
+            emit LeaderboardUpdated(msg.sender, leaderboard[msg.sender]);
         }
 
         room.lastRollValue[msg.sender] = finalRoll;
@@ -212,7 +220,12 @@ contract SnakeGame {
                 if (newPos >= 100) {
                     room.winner = player;
                     stakeToken.safeTransfer(player, room.stakeAmount * room.players.length);
+                    if (leaderboard[player] == 0) {
+                        leaderboardPlayers.push(player);
+                    }
+                    leaderboard[player] += 1;
                     emit GameWon(roomId, player);
+                    emit LeaderboardUpdated(player, leaderboard[player]);
                     return;
                 }
 
@@ -292,9 +305,66 @@ contract SnakeGame {
         return 0; // No running room found
     }
 
-    /// @notice who’s turn it is in a given room
+    /// @notice who's turn it is in a given room
     function getCurrentPlayer(uint256 roomId) external view returns (address) {
         Room storage room = roomStorage[roomId];
         return room.players[ room.currentPlayerIndex ];
+    }
+
+    // Add a function to get leaderboard stats
+    function getLeaderboardStats(address player) external view returns (uint256) {
+        return leaderboard[player];
+    }
+
+    // Get player's rank (1-based ranking)
+    function getPlayerRank(address player) external view returns (uint256) {
+        uint256 playerWins = leaderboard[player];
+        if (playerWins == 0) return 0; // Player hasn't won any games
+
+        uint256 rank = 1;
+        for (uint256 i = 0; i < leaderboardPlayers.length; i++) {
+            if (leaderboardPlayers[i] != player && leaderboard[leaderboardPlayers[i]] > playerWins) {
+                rank++;
+            }
+        }
+        return rank;
+    }
+
+    // Get top N players from the leaderboard
+    function getTopPlayers(uint256 n) external view returns (
+        address[] memory players,
+        uint256[] memory wins
+    ) {
+        uint256 length = leaderboardPlayers.length;
+        if (n > length) {
+            n = length;
+        }
+
+        players = new address[](n);
+        wins = new uint256[](n);
+        
+        // Create a memory array of indices for sorting
+        uint256[] memory indices = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            indices[i] = i;
+        }
+
+        // Sort indices based on win counts (bubble sort)
+        for (uint256 i = 0; i < n; i++) {
+            for (uint256 j = i + 1; j < length; j++) {
+                if (leaderboard[leaderboardPlayers[indices[i]]] < leaderboard[leaderboardPlayers[indices[j]]]) {
+                    (indices[i], indices[j]) = (indices[j], indices[i]);
+                }
+            }
+            players[i] = leaderboardPlayers[indices[i]];
+            wins[i] = leaderboard[players[i]];
+        }
+
+        return (players, wins);
+    }
+
+    // Get total number of players on leaderboard
+    function getTotalLeaderboardPlayers() external view returns (uint256) {
+        return leaderboardPlayers.length;
     }
 }
