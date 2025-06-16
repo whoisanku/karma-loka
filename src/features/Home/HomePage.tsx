@@ -14,7 +14,7 @@ export default function HomePage({
   onBegin,
   handleButtonClick,
 }: HomeProps) {
-  const {connect, connectors} = useConnect()
+  const { connect, connectors } = useConnect();
   const handleStartGame = () => {
     handleButtonClick();
     onBegin();
@@ -57,7 +57,7 @@ export default function HomePage({
       </button>
       <button
         type="button"
-        onClick={() => connect({connector: connectors[1]})}
+        onClick={() => connect({ connector: connectors[1] })}
         className="px-8 sm:px-12 py-4 sm:py-5 text-xl sm:text-2xl font-normal text-[#2c1810] uppercase rounded-xl
                  bg-gradient-to-r from-[#ffd700] to-[#ff8c00] 
                  border-2 border-[#8b4513] shadow-lg
@@ -67,8 +67,6 @@ export default function HomePage({
       >
         Connect Wallet
       </button>
-
-      
     </div>
   );
 }

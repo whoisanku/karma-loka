@@ -235,7 +235,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   // Filter games based on activeTab and user participation
   const filteredGames = useMemo(() => {
-    if (activeTab === 'joined') {
+    if (activeTab === "joined") {
       return games.filter((game) =>
         address ? game.players.includes(address) : false
       );
@@ -274,17 +274,17 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       <div className="flex justify-center mb-4">
         <button
           type="button"
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 rounded-l ${activeTab === 'all' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-l ${activeTab === "all" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
-          All Quests
+          All Rounds
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('joined')}
-          className={`px-4 py-2 rounded-r ${activeTab === 'joined' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+          onClick={() => setActiveTab("joined")}
+          className={`px-4 py-2 rounded-r ${activeTab === "joined" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
-          Joined Quests
+          Joined Rounds
         </button>
       </div>
 
@@ -297,9 +297,9 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
       {filteredGames.length === 0 && !isLoading ? (
         <p className="text-white">
-          {activeTab === 'joined'
-            ? 'No joined quests found.'
-            : 'No games found. Create the first quest!'}
+          {activeTab === "joined"
+            ? "No joined quests found."
+            : "No games found. Create the first quest!"}
         </p>
       ) : null}
 
@@ -313,7 +313,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[#ffd700] font-normal">{game.id}</span>
                 <span className="text-sm">
-                  Prize: {game.prize.toFixed(2)} USDC
+                  Prize: {game.prize.toFixed(2)} USD
                 </span>
               </div>
               <p className="text-sm mb-1">
@@ -332,7 +332,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
                 <div className="flex items-center">
                   {game.players.length > 0 ? (
                     <div className="flex -space-x-2">
-                      {game.players.slice(0, 3).map((player, pIndex) => {
+                      {game.players.slice(0, 4).map((player, pIndex) => {
                         const profile = farcasterProfiles[player];
                         const pfpUrl =
                           profile?.pfp?.url ??
@@ -349,15 +349,15 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
                           />
                         );
                       })}
-                      {game.players.length > 3 && (
+                      {game.players.length > 4 && (
                         <div
                           title={`More: ${game.players
-                            .slice(3)
+                            .slice(4)
                             .map((p) => farcasterProfiles[p]?.username ?? p)
                             .join(", ")}`}
                           className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
                         >
-                          +{game.players.length - 3}
+                          +{game.players.length - 4}
                         </div>
                       )}
                     </div>
@@ -380,7 +380,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           <button
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-l ${currentPage === 1 ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
+            className={`px-4 py-2 rounded-l ${currentPage === 1 ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed" : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"}`}
           >
             Previous
           </button>
@@ -404,6 +404,36 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           </button>
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={() => {
+          handleButtonClick();
+          navigate("/leaderboard");
+        }}
+        className="fixed bottom-3 left-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
+        title="Leaderboard"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          className="lucide lucide-trophy-icon lucide-trophy"
+        >
+          <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" />
+          <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978" />
+          <path d="M18 9h1.5a1 1 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
+          <path d="M6 9H4.5a1 1 0 0 1 0-5H6" />
+        </svg>
+      </button>
 
       <button
         type="button"
@@ -459,7 +489,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               </svg>
             </button>
 
-            <h2 className="text-[#ffd700] text-xl mb-6 font-['MorrisRoman']">
+            <h2 className="text-[#ffd700] text-xl mb-6 font-['KGRedHands']">
               Confirm Join
             </h2>
 
