@@ -1,5 +1,7 @@
 import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAccount } from "wagmi";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 import ProfileModal from "../Modal/ProfileModal";
 import SettingsModal from "../Modal/SettingsModal";
 import type { SDKUser } from "../../types";
@@ -32,8 +34,15 @@ export default function WoodenFrameLayout({
   const location = useLocation();
   const isLeaderboardPage = location.pathname === "/leaderboard";
 
+  // Fetch connected wallet Farcaster profile
+  const { address } = useAccount();
+  const { profiles: fcProfiles } = useFarcasterProfiles(
+    address ? [address] : []
+  );
+  const walletProfile = address ? fcProfiles[address] : null;
+
   return (
-    <div className="w-full h-[100dvh] bg-[#2c1810] font-['MorrisRoman'] flex flex-col">
+    <div className="w-full h-[100dvh] bg-[#2c1810] font-['KGRedHands'] flex flex-col">
       {/* This div applies the wooden frame and padding */}
       <div
         className="flex-grow bg-no-repeat bg-cover bg-center m-0 sm:m-4 overflow-hidden"
@@ -145,7 +154,8 @@ export default function WoodenFrameLayout({
                   <img
                     src={
                       fcUser?.pfpUrl ||
-                      "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                      walletProfile?.pfp?.url ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${address ?? "Felix"}`
                     }
                     alt="Profile"
                     className="w-full h-full object-cover rounded-full"

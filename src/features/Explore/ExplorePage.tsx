@@ -235,7 +235,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   // Filter games based on activeTab and user participation
   const filteredGames = useMemo(() => {
-    if (activeTab === 'joined') {
+    if (activeTab === "joined") {
       return games.filter((game) =>
         address ? game.players.includes(address) : false
       );
@@ -274,15 +274,15 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       <div className="flex justify-center mb-4">
         <button
           type="button"
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 rounded-l ${activeTab === 'all' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-l ${activeTab === "all" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
           All Quests
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('joined')}
-          className={`px-4 py-2 rounded-r ${activeTab === 'joined' ? 'bg-[#ffd700] text-[#2c1810]' : 'bg-gray-700 text-white'}`}
+          onClick={() => setActiveTab("joined")}
+          className={`px-4 py-2 rounded-r ${activeTab === "joined" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
           Joined Quests
         </button>
@@ -297,9 +297,9 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
       {filteredGames.length === 0 && !isLoading ? (
         <p className="text-white">
-          {activeTab === 'joined'
-            ? 'No joined quests found.'
-            : 'No games found. Create the first quest!'}
+          {activeTab === "joined"
+            ? "No joined quests found."
+            : "No games found. Create the first quest!"}
         </p>
       ) : null}
 
@@ -332,7 +332,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
                 <div className="flex items-center">
                   {game.players.length > 0 ? (
                     <div className="flex -space-x-2">
-                      {game.players.slice(0, 3).map((player, pIndex) => {
+                      {game.players.slice(0, 4).map((player, pIndex) => {
                         const profile = farcasterProfiles[player];
                         const pfpUrl =
                           profile?.pfp?.url ??
@@ -349,15 +349,15 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
                           />
                         );
                       })}
-                      {game.players.length > 3 && (
+                      {game.players.length > 4 && (
                         <div
                           title={`More: ${game.players
-                            .slice(3)
+                            .slice(4)
                             .map((p) => farcasterProfiles[p]?.username ?? p)
                             .join(", ")}`}
                           className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
                         >
-                          +{game.players.length - 3}
+                          +{game.players.length - 4}
                         </div>
                       )}
                     </div>
@@ -380,7 +380,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           <button
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-l ${currentPage === 1 ? 'text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed' : 'text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]'}`}
+            className={`px-4 py-2 rounded-l ${currentPage === 1 ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed" : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"}`}
           >
             Previous
           </button>
@@ -459,7 +459,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               </svg>
             </button>
 
-            <h2 className="text-[#ffd700] text-xl mb-6 font-['MorrisRoman']">
+            <h2 className="text-[#ffd700] text-xl mb-6 font-['KGRedHands']">
               Confirm Join
             </h2>
 

@@ -60,14 +60,21 @@ const Dice: React.FC<DiceProps> = ({
         setCurrentDisplayValue(newValue);
 
         // Toggle roll direction for visual variety
-        const isCurrentlyOdd = dieRef.current.classList.contains(styles["odd-roll"]);
-        dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
-        dieRef.current.classList.add(isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]);
+        const isCurrentlyOdd = dieRef.current.classList.contains(
+          styles["odd-roll"]
+        );
+        dieRef.current.classList.remove(
+          styles["odd-roll"],
+          styles["even-roll"]
+        );
+        dieRef.current.classList.add(
+          isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
+        );
       };
 
       // Initial roll
       roll();
-      
+
       // Set up consistent interval
       rollInterval.current = setInterval(roll, ROLL_INTERVAL);
     } else {
@@ -77,8 +84,11 @@ const Dice: React.FC<DiceProps> = ({
       }
 
       // Set final value if provided
-      if (typeof stopAt === 'number') {
-        dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
+      if (typeof stopAt === "number") {
+        dieRef.current.classList.remove(
+          styles["odd-roll"],
+          styles["even-roll"]
+        );
         dieRef.current.classList.add(styles["even-roll"]);
         dieRef.current.dataset.roll = stopAt.toString();
         setCurrentDisplayValue(stopAt);
@@ -102,12 +112,20 @@ const Dice: React.FC<DiceProps> = ({
     }
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(error => console.error("Error playing sound:", error));
+      audioRef.current
+        .play()
+        .catch((error) => console.error("Error playing sound:", error));
     }
   }, [soundSrc]);
 
   const performRoll = useCallback(() => {
-    if (!dieRef.current || isParentRolling || disabled || waitingForResult || pauseAfterStop) {
+    if (
+      !dieRef.current ||
+      isParentRolling ||
+      disabled ||
+      waitingForResult ||
+      pauseAfterStop
+    ) {
       return;
     }
 
@@ -116,14 +134,27 @@ const Dice: React.FC<DiceProps> = ({
 
     const roll = getRandomNumber(1, 6);
     if (dieRef.current) {
-      const isCurrentlyOdd = dieRef.current.classList.contains(styles["odd-roll"]);
+      const isCurrentlyOdd = dieRef.current.classList.contains(
+        styles["odd-roll"]
+      );
       dieRef.current.classList.remove(styles["odd-roll"], styles["even-roll"]);
-      dieRef.current.classList.add(isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]);
+      dieRef.current.classList.add(
+        isCurrentlyOdd ? styles["even-roll"] : styles["odd-roll"]
+      );
       dieRef.current.dataset.roll = roll.toString();
     }
 
     onRollComplete(roll);
-  }, [isParentRolling, setParentIsRolling, playSound, disabled, waitingForResult, pauseAfterStop, onRollComplete, styles]);
+  }, [
+    isParentRolling,
+    setParentIsRolling,
+    playSound,
+    disabled,
+    waitingForResult,
+    pauseAfterStop,
+    onRollComplete,
+    styles,
+  ]);
 
   // Initialize dice
   useEffect(() => {
@@ -145,7 +176,9 @@ const Dice: React.FC<DiceProps> = ({
             : "pointer",
         opacity: disabled ? 0.5 : 1,
         pointerEvents:
-          disabled || isParentRolling || waitingForResult || pauseAfterStop ? "none" : "auto",
+          disabled || isParentRolling || waitingForResult || pauseAfterStop
+            ? "none"
+            : "auto",
       }}
       role="button"
       aria-disabled={disabled || waitingForResult || pauseAfterStop}

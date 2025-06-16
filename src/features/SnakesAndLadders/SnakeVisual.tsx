@@ -91,18 +91,7 @@ const SnakeVisual: React.FC<SnakeVisualProps> = ({ start, end }) => {
         r={0.02}
         fill="black"
       />
-      {/* Forked Tongue */}
-      <polyline
-        points={`${p1.x + headNy * 0.15},${p1.y - headNx * 0.15} ${p1.x + headNy * 0.25},${
-          p1.y - headNx * 0.25
-        } ${p1.x + headNy * 0.2},${p1.y - headNx * 0.2} ${p1.x + headNy * 0.3},${
-          p1.y - headNx * 0.3
-        }`}
-        stroke="red"
-        strokeWidth="0.02"
-        fill="none"
-        strokeLinecap="round"
-      />
+      {/* Forked Tongue removed */}
     </g>
   );
 };
