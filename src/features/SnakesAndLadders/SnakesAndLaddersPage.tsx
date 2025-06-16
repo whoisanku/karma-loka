@@ -678,8 +678,7 @@ const SnakesAndLaddersPage: React.FC = () => {
                     </span>
                   ) : (
                     <span className="text-white text-sm">
-                      Waiting for {truncateAddress(currentPlayer.name)} to
-                      roll...
+                      {truncateAddress(currentPlayer.name)}'s turn..
                     </span>
                   )
                 ) : (

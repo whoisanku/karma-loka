@@ -250,9 +250,9 @@ function AppContent() {
         toggleButtonSound={toggleButtonSound}
         title={
           location.pathname === "/explore"
-            ? "Choose Your Quest"
+            ? "Explore"
             : location.pathname === "/create"
-              ? "Host New Quest"
+              ? "Create"
               : location.pathname === "/leaderboard"
                 ? "Leaderboard"
                 : "Mystic Paths"

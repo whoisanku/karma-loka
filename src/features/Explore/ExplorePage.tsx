@@ -277,14 +277,14 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           onClick={() => setActiveTab("all")}
           className={`px-4 py-2 rounded-l ${activeTab === "all" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
-          All Quests
+          All Rounds
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("joined")}
           className={`px-4 py-2 rounded-r ${activeTab === "joined" ? "bg-[#ffd700] text-[#2c1810]" : "bg-gray-700 text-white"}`}
         >
-          Joined Quests
+          Joined Rounds
         </button>
       </div>
 
@@ -313,7 +313,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[#ffd700] font-normal">{game.id}</span>
                 <span className="text-sm">
-                  Prize: {game.prize.toFixed(2)} USDC
+                  Prize: {game.prize.toFixed(2)} USD
                 </span>
               </div>
               <p className="text-sm mb-1">
@@ -404,6 +404,36 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           </button>
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={() => {
+          handleButtonClick();
+          navigate("/leaderboard");
+        }}
+        className="fixed bottom-3 left-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
+        title="Leaderboard"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          className="lucide lucide-trophy-icon lucide-trophy"
+        >
+          <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" />
+          <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978" />
+          <path d="M18 9h1.5a1 1 0 0 0 0-5H18" />
+          <path d="M4 22h16" />
+          <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
+          <path d="M6 9H4.5a1 1 0 0 1 0-5H6" />
+        </svg>
+      </button>
 
       <button
         type="button"
