@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { PiUsersFill, PiUsersThreeFill, PiUsersFourFill } from "react-icons/pi";
 import type { SDKUser } from "../../types";
 import { formatUnits, parseUnits } from "viem";
-import { useCreateGame, type TransactionStep } from "../../hooks/useCreateGame";
+import { useCreateGame } from "../../hooks/useCreateGame";
 import { useStorage } from "../../hooks/useStorage";
+import { useAccount } from "wagmi";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -16,9 +18,23 @@ export default function CreateGamePage({
   handleButtonClick,
 }: CreateGamePageProps) {
   const navigate = useNavigate();
+  const { address } = useAccount();
+  const { profiles: fcProfiles } = useFarcasterProfiles(
+    address ? [address] : []
+  );
+  const walletProfile = address ? fcProfiles[address] : null;
+  const truncateAddress = (addr: string | undefined) => {
+    if (!addr) return "Anon";
+    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  };
+
   const defaultRoomName = fcUser
     ? `${fcUser.username}'s room`
-    : "Adventurer's room";
+    : walletProfile?.username
+      ? `${walletProfile.username}'s room`
+      : address
+        ? `${truncateAddress(address)}'s room`
+        : "Adventurer's room";
 
   const [gameName, setGameName] = useState("");
   const [prizeAmount, setPrizeAmount] = useState<string>("");

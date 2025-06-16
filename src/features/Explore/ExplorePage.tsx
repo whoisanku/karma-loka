@@ -28,7 +28,7 @@ interface ExplorePageProps {
 
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const [activeTab, setActiveTab] = useState("all");
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -103,12 +103,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     handleButtonClick();
     setSelectedGame(game);
     setIsConfirmJoinModalOpen(true);
-  };
-
-  const handleRollClick = (game: Game) => {
-    handleButtonClick();
-    const id = game.id.split("#")[1];
-    navigate(`/game/${id}`);
   };
 
   // Trigger participation flow
@@ -388,15 +382,19 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 }
 
 // Add GameCard component to keep the main component clean
-const GameCard = ({ game, onJoinClick, farcasterProfiles }: { 
-  game: Game; 
+const GameCard = ({
+  game,
+  onJoinClick,
+  farcasterProfiles,
+}: {
+  game: Game;
   onJoinClick: (game: Game) => void;
   farcasterProfiles: Record<string, any>;
 }) => {
   const { metadata } = useGameMetadata(game.metadataUri);
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
-  
+
   // Component to render game button with hasJoined check
   const GameButton = () => {
     const { data: joined } = useReadContract({
@@ -492,29 +490,22 @@ const GameCard = ({ game, onJoinClick, farcasterProfiles }: {
       </button>
     );
   };
-  
+
   return (
     <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[#ffd700] font-normal">{game.id}</span>
           {metadata?.name && (
-            <span className="text-gray-400 text-sm">
-              - {metadata.name}
-            </span>
+            <span className="text-[#ffd700] font-normal">{metadata.name}</span>
           )}
         </div>
-        <span className="text-sm">
-          Prize: {game.prize.toFixed(2)} USD
-        </span>
+        <span className="text-sm">Prize: {game.prize.toFixed(2)} USD</span>
       </div>
       <p className="text-sm mb-1">
-        Creator:{" "}
-        {farcasterProfiles[game.creator]?.username ?? game.creator}
+        Creator: {farcasterProfiles[game.creator]?.username ?? game.creator}
       </p>
       <p className="text-xs text-gray-400 mb-1">
-        Players: {game.players.length}/{game.requiredParticipants}{" "}
-        required
+        Players: {game.players.length}/{game.requiredParticipants} required
       </p>
       {game.started && (
         <p className="text-xs text-green-400 mb-1">Game Started</p>
@@ -554,9 +545,7 @@ const GameCard = ({ game, onJoinClick, farcasterProfiles }: {
               )}
             </div>
           ) : (
-            <span className="text-sm text-gray-400">
-              No players yet
-            </span>
+            <span className="text-sm text-gray-400">No players yet</span>
           )}
         </div>
         <GameButton />
