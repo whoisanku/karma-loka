@@ -135,7 +135,7 @@ contract SnakeGame {
     function getCurrentSlot(Room storage room) internal view returns (uint256) {
         require(room.started, "Game not started");
         // return (block.timestamp - room.gameStartTime) / 1 days;
-        return (block.timestamp - room.gameStartTime) / 2 minutes;
+        return block.timestamp - room.gameStartTime;
     }
 
     function applySnakeLadder(uint8 position) internal view returns (uint8) {

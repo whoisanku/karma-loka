@@ -148,7 +148,7 @@ const RoundTimer: React.FC<{ minutes: number; seconds: number }> = ({
   );
 };
 
-const SLOT_DURATION_MINUTES = 2;
+const SLOT_DURATION_MINUTES = 1;
 const SLOT_DURATION_SECONDS = SLOT_DURATION_MINUTES * 60;
 
 const SnakesAndLaddersPage: React.FC = () => {
