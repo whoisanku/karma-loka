@@ -363,6 +363,7 @@ contract SnakeGame {
     function getUserInfo(uint256 roomId, address player) external view returns (
         uint8 lastPosition,
         uint8 currentPosition,
+        bool hasRolledSix,
         uint256 lastRollSlot,
         uint8 lastRoll,
         uint8 prasad
@@ -372,6 +373,7 @@ contract SnakeGame {
         return (
             room.lastPositions[player],
             room.positions[player],
+            room.hasRolledSix[player],
             room.lastRollSlot[player],
             room.lastRollValue[player],
             room.prasadMeter[player]

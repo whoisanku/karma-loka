@@ -39,6 +39,7 @@ interface Player {
   position: number;
   lastRoll?: number;
   lastPosition?: number;
+  hasRolledSix?: boolean;
 }
 
 type RoomInfo = [
@@ -50,6 +51,15 @@ type RoomInfo = [
   gameStartTime: bigint,
   winner: `0x${string}`,
   metadataUri: string,
+];
+
+type UserInfo = readonly [
+  number, // lastPosition
+  number, // currentPosition
+  boolean, // hasRolledSix
+  bigint, // lastRollSlot
+  number, // lastRollValue
+  number, // prasadMeter
 ];
 
 const PlayerCorner: React.FC<{
@@ -138,6 +148,9 @@ const RoundTimer: React.FC<{ minutes: number; seconds: number }> = ({
   );
 };
 
+const SLOT_DURATION_MINUTES = 2;
+const SLOT_DURATION_SECONDS = SLOT_DURATION_MINUTES * 60;
+
 const SnakesAndLaddersPage: React.FC = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -200,27 +213,20 @@ const SnakesAndLaddersPage: React.FC = () => {
 
   const players: Player[] = Array.from({ length: requiredSlots }, (_, i) => {
     const addr = (contractPlayers as string[] | undefined)?.[i];
-    const info = playerInfoQueries[i].data as
-      | readonly [
-          number, // lastPosition
-          bigint, // currentPosition
-          bigint, // lastRollSlot
-          number, // lastRollValue
-          number, // prasadMeter
-        ]
-      | undefined;
+    const info = playerInfoQueries[i].data as UserInfo | undefined;
     return {
       id: addr ?? `slot-${i}`,
       name: addr
-        ? (profiles[addr]?.username ?? truncateAddress(addr))
+        ? profiles[addr]?.username ?? truncateAddress(addr)
         : "Waiting",
       avatarUrl: addr
-        ? (profiles[addr]?.pfp?.url ??
-          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`)
+        ? profiles[addr]?.pfp?.url ??
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
         : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
-      position: info ? Number(info[1]) : 1,
-      lastPosition: info ? Number(info[0]) : undefined,
-      lastRoll: info ? Number(info[3]) : undefined,
+      position: info ? info[1] : 1,
+      lastPosition: info ? info[0] : undefined,
+      lastRoll: info ? info[4] : undefined,
+      hasRolledSix: info ? info[2] : undefined,
     };
   });
 
@@ -259,17 +265,11 @@ const SnakesAndLaddersPage: React.FC = () => {
 
     // Get the player's info from the query result
     const playerInfo = playerInfoQueries[currentPlayerIndex].data as
-      | readonly [
-          number, // lastPosition
-          bigint, // currentPosition
-          bigint, // lastRollSlot
-          number, // lastRollValue
-          number, // prasadMeter
-        ]
+      | UserInfo
       | undefined;
 
     if (playerInfo) {
-      const serverRoll = Number(playerInfo[3]);
+      const serverRoll = Number(playerInfo[4]);
       // only trigger when on-chain roll has advanced
       if (serverRoll > prevServerRoll) {
         console.log(`Roll detected from server: ${serverRoll}`);
@@ -314,7 +314,7 @@ const SnakesAndLaddersPage: React.FC = () => {
     !!currentPlayerAddress &&
     currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
-  const handleDiceRollComplete = async (visualRoll: number) => {
+  const handleDiceRollComplete = async () => {
     // We'll keep the visual dice roll, but also start the contract interaction
     if (!isConnected || !address) {
       setIsRolling(false);
@@ -327,15 +327,9 @@ const SnakesAndLaddersPage: React.FC = () => {
         (p) => p.id.toLowerCase() === address.toLowerCase()
       );
       const currentInfo = playerInfoQueries[currentPlayerIndex]?.data as
-        | readonly [
-            number, // lastPosition
-            bigint, // currentPosition
-            bigint, // lastRollSlot
-            number, // lastRollValue
-            number, // prasadMeter
-          ]
+        | UserInfo
         | undefined;
-      setPrevServerRoll(currentInfo ? Number(currentInfo[3]) : 0);
+      setPrevServerRoll(currentInfo ? Number(currentInfo[4]) : 0);
 
       // Set waiting for transaction to true to keep the dice rolling
       setWaitingForTransaction(true);
@@ -344,11 +338,14 @@ const SnakesAndLaddersPage: React.FC = () => {
       // UI freeze from tx submission until 3s after dice settles
       setFreezeQuery(true);
 
+      const functionToCall =
+        currentPlayer?.hasRolledSix && isMyTurn ? "extraRoll" : "rollDice";
+
       // send tx and get hash
       const txHash = await writeContractAsync({
         address: snakeGameContractInfo.address as `0x${string}`,
         abi: snakeGameContractInfo.abi,
-        functionName: "rollDice",
+        functionName: functionToCall,
         args: [BigInt(numericRoomId)],
         gas: 200000n,
       });
@@ -360,7 +357,7 @@ const SnakesAndLaddersPage: React.FC = () => {
       console.log("logs", receipt.logs);
 
       // decode DiceRolled event to get value
-      let finalRollValue: number = visualRoll; // start with the visual roll as fallback
+      let finalRollValue: number = 0; // start with 0, will be updated
       for (const log of receipt.logs) {
         try {
           if (
@@ -424,8 +421,9 @@ const SnakesAndLaddersPage: React.FC = () => {
       const now = Math.floor(Date.now() / 1000);
       const elapsed = now - gameStartTime;
       const elapsedMinutes = Math.floor(elapsed / 60);
-      const currentSlot = Math.floor(elapsedMinutes / 5);
-      const nextSlotTime = gameStartTime + (currentSlot + 1) * 5 * 60;
+      const currentSlot = Math.floor(elapsedMinutes / SLOT_DURATION_MINUTES);
+      const nextSlotTime =
+        gameStartTime + (currentSlot + 1) * SLOT_DURATION_SECONDS;
       const remaining = nextSlotTime - now;
 
       const mins = Math.max(0, Math.floor(remaining / 60));
@@ -443,23 +441,18 @@ const SnakesAndLaddersPage: React.FC = () => {
   // Calculate the current slot (round)
   const currentSlot =
     gameStartTime > 0
-      ? Math.floor((Math.floor(Date.now() / 1000) - gameStartTime) / 300) // 5 minutes = 300 seconds
+      ? Math.floor(
+          (Math.floor(Date.now() / 1000) - gameStartTime) /
+            SLOT_DURATION_SECONDS
+        )
       : 0;
 
   // Use a different approach to access player info
   const enhancedPlayers = players.map((player, index) => {
     // Simply use the player's index to access the corresponding query info
-    const info = playerInfoQueries[index]?.data as
-      | readonly [
-          number, // lastPosition
-          bigint, // currentPosition
-          bigint, // lastRollSlot
-          number, // lastRollValue
-          number, // prasadMeter
-        ]
-      | undefined;
+    const info = playerInfoQueries[index]?.data as UserInfo | undefined;
 
-    const lastRollSlot = info ? Number(info[2]) : undefined;
+    const lastRollSlot = info ? Number(info[3]) : undefined;
     const hasRolledInCurrentRound = lastRollSlot === currentSlot;
 
     return {
@@ -673,9 +666,15 @@ const SnakesAndLaddersPage: React.FC = () => {
               <>
                 {currentPlayer ? (
                   isMyTurn ? (
-                    <span className="text-green-400 text-base font-bold animate-pulse">
-                      Your turn to roll!
-                    </span>
+                    currentPlayer.hasRolledSix ? (
+                      <span className="text-green-400 text-base font-bold animate-pulse">
+                        You get to roll again!
+                      </span>
+                    ) : (
+                      <span className="text-green-400 text-base font-bold animate-pulse">
+                        Your turn to roll!
+                      </span>
+                    )
                   ) : (
                     <span className="text-white text-sm">
                       {truncateAddress(currentPlayer.name)}'s turn..
