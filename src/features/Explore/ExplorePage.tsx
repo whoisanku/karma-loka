@@ -4,6 +4,7 @@ import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
 import useExplore from "../../hooks/useExplore";
 import { useParticipate } from "../../hooks/useParticipate";
+import { useGameMetadata } from "../../hooks/useGameMetadata";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
@@ -142,97 +143,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     }
   }, [participateStep, navigate, selectedGame]);
 
-  // Component to render game button with hasJoined check
-  const GameButton = ({ game }: { game: Game }) => {
-    const { data: joined } = useReadContract({
-      address: snakeGameContractInfo.address as `0x${string}`,
-      abi: snakeGameContractInfo.abi,
-      functionName: "hasJoined",
-      args: [BigInt(game.id.split("#")[1]), address!],
-      query: {
-        enabled: isConnected && Boolean(address),
-        refetchInterval: 5000,
-      },
-    });
-
-    const hasJoined = Boolean(joined);
-    const isFull = game.players.length >= game.maxParticipants;
-
-    // If game has started
-    if (game.started) {
-      if (hasJoined) {
-        // User has joined and game started - show Roll button
-        return (
-          <button
-            type="button"
-            onClick={() => handleRollClick(game)}
-            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
-                     text-[#2c1810] bg-gradient-to-r from-[#00ff00] to-[#32cd32] border-[#228b22] 
-                     hover:from-[#32cd32] hover:to-[#00ff00]"
-          >
-            Roll
-          </button>
-        );
-      } else {
-        // User hasn't joined and game started - allow viewing the game
-        return (
-          <button
-            type="button"
-            onClick={() => handleRollClick(game)}
-            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300
-                     text-[#2c1810] bg-gradient-to-r from-[#9ca3af] to-[#d1d5db] border-[#6b7280]
-                     hover:from-[#d1d5db] hover:to-[#9ca3af]"
-          >
-            View
-          </button>
-        );
-      }
-    }
-
-    // Game hasn't started yet
-    if (hasJoined) {
-      // User has joined but game hasn't started - show Joined button (disabled)
-      return (
-        <button
-          type="button"
-          disabled
-          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
-                   text-[#ffd700] bg-[#2c1810] border-[#8b4513] cursor-not-allowed opacity-75"
-        >
-          Joined
-        </button>
-      );
-    }
-
-    // User hasn't joined and game hasn't started
-    if (isFull) {
-      // Game is full
-      return (
-        <button
-          type="button"
-          disabled
-          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
-                   text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
-        >
-          Full
-        </button>
-      );
-    }
-
-    // User can join
-    return (
-      <button
-        type="button"
-        onClick={() => handleJoinQuestClick(game)}
-        className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
-                 text-[#2c1810] bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-[#8b4513] 
-                 hover:from-[#ffed4a] hover:to-[#ffa500]"
-      >
-        Join
-      </button>
-    );
-  };
-
   // Filter games based on activeTab and user participation
   const filteredGames = useMemo(() => {
     if (activeTab === "joined") {
@@ -306,70 +216,12 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       {filteredGames.length > 0 && (
         <div className="space-y-4">
           {filteredGames.map((game, index) => (
-            <div
+            <GameCard
               key={`${game.id}-${index}`}
-              className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[#ffd700] font-normal">{game.id}</span>
-                <span className="text-sm">
-                  Prize: {game.prize.toFixed(2)} USD
-                </span>
-              </div>
-              <p className="text-sm mb-1">
-                Creator:{" "}
-                {farcasterProfiles[game.creator]?.username ?? game.creator}
-              </p>
-              <p className="text-xs text-gray-400 mb-1">
-                Players: {game.players.length}/{game.requiredParticipants}{" "}
-                required
-              </p>
-              {game.started && (
-                <p className="text-xs text-green-400 mb-1">Game Started</p>
-              )}
-
-              <div className="flex justify-between items-center mt-3 mb-1">
-                <div className="flex items-center">
-                  {game.players.length > 0 ? (
-                    <div className="flex -space-x-2">
-                      {game.players.slice(0, 4).map((player, pIndex) => {
-                        const profile = farcasterProfiles[player];
-                        const pfpUrl =
-                          profile?.pfp?.url ??
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${player}`;
-                        const username = profile?.username ?? player;
-
-                        return (
-                          <img
-                            key={pIndex}
-                            src={pfpUrl}
-                            alt={username}
-                            title={username}
-                            className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
-                          />
-                        );
-                      })}
-                      {game.players.length > 4 && (
-                        <div
-                          title={`More: ${game.players
-                            .slice(4)
-                            .map((p) => farcasterProfiles[p]?.username ?? p)
-                            .join(", ")}`}
-                          className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
-                        >
-                          +{game.players.length - 4}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-sm text-gray-400">
-                      No players yet
-                    </span>
-                  )}
-                </div>
-                <GameButton game={game} />
-              </div>
-            </div>
+              game={game}
+              onJoinClick={handleJoinQuestClick}
+              farcasterProfiles={farcasterProfiles}
+            />
           ))}
         </div>
       )}
@@ -534,3 +386,181 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     </div>
   );
 }
+
+// Add GameCard component to keep the main component clean
+const GameCard = ({ game, onJoinClick, farcasterProfiles }: { 
+  game: Game; 
+  onJoinClick: (game: Game) => void;
+  farcasterProfiles: Record<string, any>;
+}) => {
+  const { metadata } = useGameMetadata(game.metadataUri);
+  const { address, isConnected } = useAccount();
+  const navigate = useNavigate();
+  
+  // Component to render game button with hasJoined check
+  const GameButton = () => {
+    const { data: joined } = useReadContract({
+      address: snakeGameContractInfo.address as `0x${string}`,
+      abi: snakeGameContractInfo.abi,
+      functionName: "hasJoined",
+      args: [BigInt(game.id.split("#")[1]), address!],
+      query: {
+        enabled: isConnected && Boolean(address),
+        refetchInterval: 5000,
+      },
+    });
+
+    const hasJoined = Boolean(joined);
+    const isFull = game.players.length >= game.maxParticipants;
+
+    const handleRollClick = () => {
+      const id = game.id.split("#")[1];
+      navigate(`/game/${id}`);
+    };
+
+    // If game has started
+    if (game.started) {
+      if (hasJoined) {
+        // User has joined and game started - show Roll button
+        return (
+          <button
+            type="button"
+            onClick={handleRollClick}
+            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                     text-[#2c1810] bg-gradient-to-r from-[#00ff00] to-[#32cd32] border-[#228b22] 
+                     hover:from-[#32cd32] hover:to-[#00ff00]"
+          >
+            Roll
+          </button>
+        );
+      } else {
+        // User hasn't joined and game started - allow viewing the game
+        return (
+          <button
+            type="button"
+            onClick={handleRollClick}
+            className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300
+                     text-[#2c1810] bg-gradient-to-r from-[#9ca3af] to-[#d1d5db] border-[#6b7280]
+                     hover:from-[#d1d5db] hover:to-[#9ca3af]"
+          >
+            View
+          </button>
+        );
+      }
+    }
+
+    // Game hasn't started yet
+    if (hasJoined) {
+      // User has joined but game hasn't started - show Joined button (disabled)
+      return (
+        <button
+          type="button"
+          disabled
+          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                   text-[#ffd700] bg-[#2c1810] border-[#8b4513] cursor-not-allowed opacity-75"
+        >
+          Joined
+        </button>
+      );
+    }
+
+    // User hasn't joined and game hasn't started
+    if (isFull) {
+      // Game is full
+      return (
+        <button
+          type="button"
+          disabled
+          className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                   text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
+        >
+          Full
+        </button>
+      );
+    }
+
+    // User can join
+    return (
+      <button
+        type="button"
+        onClick={() => onJoinClick(game)}
+        className="px-4 py-1 text-sm font-normal uppercase rounded-md border-2 transition-colors duration-300 
+                 text-[#2c1810] bg-gradient-to-r from-[#ffd700] to-[#ff8c00] border-[#8b4513] 
+                 hover:from-[#ffed4a] hover:to-[#ffa500]"
+      >
+        Join
+      </button>
+    );
+  };
+  
+  return (
+    <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md">
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[#ffd700] font-normal">{game.id}</span>
+          {metadata?.name && (
+            <span className="text-gray-400 text-sm">
+              - {metadata.name}
+            </span>
+          )}
+        </div>
+        <span className="text-sm">
+          Prize: {game.prize.toFixed(2)} USD
+        </span>
+      </div>
+      <p className="text-sm mb-1">
+        Creator:{" "}
+        {farcasterProfiles[game.creator]?.username ?? game.creator}
+      </p>
+      <p className="text-xs text-gray-400 mb-1">
+        Players: {game.players.length}/{game.requiredParticipants}{" "}
+        required
+      </p>
+      {game.started && (
+        <p className="text-xs text-green-400 mb-1">Game Started</p>
+      )}
+
+      <div className="flex justify-between items-center mt-3 mb-1">
+        <div className="flex items-center">
+          {game.players.length > 0 ? (
+            <div className="flex -space-x-2">
+              {game.players.slice(0, 4).map((player, pIndex) => {
+                const profile = farcasterProfiles[player];
+                const pfpUrl =
+                  profile?.pfp?.url ??
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${player}`;
+                const username = profile?.username ?? player;
+
+                return (
+                  <img
+                    key={pIndex}
+                    src={pfpUrl}
+                    alt={username}
+                    title={username}
+                    className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                  />
+                );
+              })}
+              {game.players.length > 4 && (
+                <div
+                  title={`More: ${game.players
+                    .slice(4)
+                    .map((p) => farcasterProfiles[p]?.username ?? p)
+                    .join(", ")}`}
+                  className="w-8 h-8 rounded-full border-2 border-[#8b4513] bg-[#2c1810] flex items-center justify-center text-xs text-[#ffd700] font-semibold hover:z-10 transform hover:scale-110 transition-transform"
+                >
+                  +{game.players.length - 4}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400">
+              No players yet
+            </span>
+          )}
+        </div>
+        <GameButton />
+      </div>
+    </div>
+  );
+};
