@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useReadContract, useWriteContract, useAccount, usePublicClient } from "wagmi";
 import { decodeEventLog } from "viem";
@@ -60,7 +60,7 @@ const PlayerCorner: React.FC<{
   handleDiceRollComplete,
   isRolling,
   setIsRolling,
-  winner,
+  winner: _winner,
   waitingForTransaction,
 }) => {
   const avatar = (
@@ -242,6 +242,60 @@ const SnakesAndLaddersPage: React.FC = () => {
   // freezeQuery declaration moved above to avoid hoisting error
   const [prevServerRoll, setPrevServerRoll] = useState<number>(0);
 
+  const localStorageKey = `sl_display_positions_${numericRoomId}`;
+  const [displayPositions, setDisplayPositions] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const stored = localStorage.getItem(localStorageKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+  const animationRefs = useRef<Record<string, NodeJS.Timeout>>({});
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(localStorageKey, JSON.stringify(displayPositions));
+    }
+  }, [displayPositions, localStorageKey]);
+
+  useEffect(() => {
+    players.forEach((player) => {
+      const currentDisplay = displayPositions[player.id] ?? player.position;
+      if (currentDisplay === player.position) {
+        if (displayPositions[player.id] === undefined) {
+          setDisplayPositions((prev) => ({ ...prev, [player.id]: player.position }));
+        }
+        return;
+      }
+
+      if (animationRefs.current[player.id]) return;
+
+      let next = currentDisplay;
+      const step = currentDisplay < player.position ? 1 : -1;
+
+      animationRefs.current[player.id] = setInterval(() => {
+        next += step;
+        setDisplayPositions((prev) => {
+          const updated = { ...prev, [player.id]: next };
+          return updated;
+        });
+
+        if (next === player.position) {
+          clearInterval(animationRefs.current[player.id]);
+          delete animationRefs.current[player.id];
+        }
+      }, 300);
+    });
+  }, [players, displayPositions]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(animationRefs.current).forEach(clearInterval);
+    };
+  }, []);
+
   const winnerAddress =
     roomInfo &&
     (roomInfo as RoomInfoType)[6] !==
@@ -397,7 +451,9 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   const getPlayersInCell = (displayedCellNumber: number) => {
-    return players.filter((p) => p.position === displayedCellNumber);
+    return players.filter(
+      (p) => (displayPositions[p.id] ?? p.position) === displayedCellNumber,
+    );
   };
 
   const resetGame = () => {
