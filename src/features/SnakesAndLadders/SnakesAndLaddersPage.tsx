@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useReadContract,
@@ -230,6 +230,14 @@ const SnakesAndLaddersPage: React.FC = () => {
     };
   });
 
+  const [displayPositions, setDisplayPositions] =
+    useState<Record<string, number>>({});
+  const timeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>[]>>({});
+
+  const playersPositionsKey = players
+    .map((p) => `${p.id}-${p.position}`)
+    .join("|");
+
   const [diceValue, setDiceValue] = useState<number>(1);
   const [isRolling, setIsRolling] = useState<boolean>(false);
   const [waitingForTransaction, setWaitingForTransaction] =
@@ -251,6 +259,50 @@ const SnakesAndLaddersPage: React.FC = () => {
 
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
+
+  // Initialize display positions for players when first loaded
+  useEffect(() => {
+    setDisplayPositions((prev) => {
+      const updated = { ...prev };
+      players.forEach((p) => {
+        if (updated[p.id] === undefined) {
+          updated[p.id] = p.lastPosition ?? p.position;
+        }
+      });
+      return updated;
+    });
+  }, [players]);
+
+  // Animate piece movement step by step whenever a player's final position changes
+  useEffect(() => {
+    players.forEach((player) => {
+      const current = displayPositions[player.id];
+      if (typeof current !== "number" || current === player.position) return;
+
+      if (timeoutsRef.current[player.id]) {
+        timeoutsRef.current[player.id].forEach(clearTimeout);
+      }
+
+      const diff = player.position - current;
+      const step = diff > 0 ? 1 : -1;
+      const steps = Math.abs(diff);
+      timeoutsRef.current[player.id] = [];
+      for (let i = 1; i <= steps; i++) {
+        const timeout = setTimeout(() => {
+          setDisplayPositions((prev) => ({
+            ...prev,
+            [player.id]: current + step * i,
+          }));
+        }, i * 300);
+        timeoutsRef.current[player.id].push(timeout);
+      }
+    });
+
+    return () => {
+      Object.values(timeoutsRef.current).forEach((tos) => tos.forEach(clearTimeout));
+      timeoutsRef.current = {};
+    };
+  }, [playersPositionsKey]);
 
   // Previous polling effect kept as fallback but disabled when we already resolved via receipt
   useEffect(() => {
@@ -397,7 +449,9 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   const getPlayersInCell = (displayedCellNumber: number) => {
-    return players.filter((p) => p.position === displayedCellNumber);
+    return players.filter(
+      (p) => (displayPositions[p.id] ?? p.position) === displayedCellNumber,
+    );
   };
 
   const resetGame = () => {
@@ -575,7 +629,9 @@ const SnakesAndLaddersPage: React.FC = () => {
                           key={player.id}
                           src={player.avatarUrl}
                           alt={player.name}
-                          title={`${player.name} (Pos: ${player.position})`}
+                          title={`${player.name} (Pos: ${
+                            displayPositions[player.id] ?? player.position
+                          })`}
                           className="w-1/2 h-1/2 rounded-full border border-[#8b4513] object-cover bg-gray-700"
                         />
                       ))}
