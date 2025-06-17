@@ -233,6 +233,7 @@ const SnakesAndLaddersPage: React.FC = () => {
   const [displayPositions, setDisplayPositions] =
     useState<Record<string, number>>({});
   const timeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>[]>>({});
+  const prevPositionsRef = useRef<Record<string, number>>({});
 
   const playersPositionsKey = players
     .map((p) => `${p.id}-${p.position}`)
@@ -260,42 +261,84 @@ const SnakesAndLaddersPage: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  // Initialize display positions for players when first loaded
+  // Initialize display and previous positions when players data loads
   useEffect(() => {
     setDisplayPositions((prev) => {
       const updated = { ...prev };
       players.forEach((p) => {
         if (updated[p.id] === undefined) {
-          updated[p.id] = p.lastPosition ?? p.position;
+          updated[p.id] = p.position;
+        }
+        if (prevPositionsRef.current[p.id] === undefined) {
+          prevPositionsRef.current[p.id] = p.position;
         }
       });
       return updated;
     });
   }, [players]);
 
-  // Animate piece movement step by step whenever a player's final position changes
+  // Animate piece movement only after new dice rolls
   useEffect(() => {
     players.forEach((player) => {
-      const current = displayPositions[player.id];
-      if (typeof current !== "number" || current === player.position) return;
+      const prev = prevPositionsRef.current[player.id];
+      if (prev === undefined) {
+        prevPositionsRef.current[player.id] = player.position;
+        setDisplayPositions((d) => ({ ...d, [player.id]: player.position }));
+        return;
+      }
+
+      if (player.position === prev) return;
 
       if (timeoutsRef.current[player.id]) {
         timeoutsRef.current[player.id].forEach(clearTimeout);
       }
 
-      const diff = player.position - current;
-      const step = diff > 0 ? 1 : -1;
-      const steps = Math.abs(diff);
-      timeoutsRef.current[player.id] = [];
-      for (let i = 1; i <= steps; i++) {
-        const timeout = setTimeout(() => {
-          setDisplayPositions((prev) => ({
-            ...prev,
-            [player.id]: current + step * i,
-          }));
-        }, i * 300);
-        timeoutsRef.current[player.id].push(timeout);
+      const roll = player.lastRoll ?? Math.abs(player.position - prev);
+
+      // compute intermediate position after dice roll with bounce logic
+      let potential = prev + roll;
+      if (potential > 100) {
+        potential = 100 - (potential - 100);
       }
+
+      const path: number[] = [];
+      const step1 = potential > prev ? 1 : -1;
+      for (let p = prev + step1; step1 > 0 ? p <= potential : p >= potential; p += step1) {
+        path.push(p);
+      }
+
+      let afterSnake = SNAKES_AND_LADDERS[potential] ?? potential;
+      if (afterSnake !== potential) {
+        const step2 = afterSnake > potential ? 1 : -1;
+        for (
+          let p = potential + step2;
+          step2 > 0 ? p <= afterSnake : p >= afterSnake;
+          p += step2
+        ) {
+          path.push(p);
+        }
+      }
+
+      if (afterSnake !== player.position) {
+        const step3 = player.position > afterSnake ? 1 : -1;
+        for (
+          let p = afterSnake + step3;
+          step3 > 0 ? p <= player.position : p >= player.position;
+          p += step3
+        ) {
+          path.push(p);
+        }
+      }
+
+      timeoutsRef.current[player.id] = [];
+      path.forEach((pos, idx) => {
+        const timeout = setTimeout(() => {
+          setDisplayPositions((d) => ({ ...d, [player.id]: pos }));
+        }, (idx + 1) * 300);
+        timeoutsRef.current[player.id].push(timeout);
+      });
+
+      prevPositionsRef.current[player.id] = player.position;
     });
 
     return () => {
