@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useReadContract,
@@ -40,6 +40,7 @@ interface Player {
   lastRoll?: number;
   lastPosition?: number;
   hasRolledSix?: boolean;
+  animatedPosition?: number;
 }
 
 type RoomInfo = [
@@ -61,6 +62,15 @@ type UserInfo = readonly [
   number, // lastRollValue
   number, // prasadMeter
 ];
+
+// Add this type for tracking animated positions
+interface AnimatedPosition {
+  currentStep: number;
+  path: number[];
+  isAnimating: boolean;
+  visualPosition: number;
+  justAnimated?: boolean;
+}
 
 const PlayerCorner: React.FC<{
   player: Player & { hasRolledInCurrentRound?: boolean };
@@ -151,11 +161,57 @@ const RoundTimer: React.FC<{ minutes: number; seconds: number }> = ({
 const SLOT_DURATION_MINUTES = 1;
 const SLOT_DURATION_SECONDS = SLOT_DURATION_MINUTES * 60;
 
+// Add path calculation utilities
+const calculateMovementPath = (startPos: number, diceRoll: number): number[] => {
+  const path: number[] = [];
+  let currentPos = startPos;
+  
+  // Calculate each step position following the grid pattern
+  for (let i = 1; i <= diceRoll; i++) {
+    const nextPos = startPos + i;
+    
+    // Handle bounce back at 100
+    if (nextPos > 100) {
+      path.push(100 - (nextPos - 100));
+    } else {
+      path.push(nextPos);
+    }
+    
+    // Stop if we hit 100
+    if (nextPos === 100) break;
+  }
+  
+  // Add snake/ladder destination if applicable
+  const finalPos = path[path.length - 1];
+  if (SNAKES_AND_LADDERS[finalPos]) {
+    path.push(SNAKES_AND_LADDERS[finalPos]);
+  }
+  
+  return path;
+};
+
 const SnakesAndLaddersPage: React.FC = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
   const numericRoomId = Number(roomId ?? 0);
+
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [boardRect, setBoardRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    const updateBoardRect = () => {
+      if (boardRef.current) {
+        setBoardRect(boardRef.current.getBoundingClientRect());
+      }
+    };
+
+    updateBoardRect();
+    window.addEventListener("resize", updateBoardRect);
+    return () => {
+      window.removeEventListener("resize", updateBoardRect);
+    };
+  }, []);
 
   const { data: contractPlayers } = useReadContract({
     address: snakeGameContractInfo.address as `0x${string}`,
@@ -252,6 +308,66 @@ const SnakesAndLaddersPage: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
+  // Add state for animated positions
+  const [animatedPositions, setAnimatedPositions] = useState<
+    Record<string, AnimatedPosition>
+  >({});
+
+  useEffect(() => {
+    if (freezeQuery) return;
+
+    setAnimatedPositions((prevPositions) => {
+      const newPositions = JSON.parse(JSON.stringify(prevPositions));
+      let changed = false;
+
+      players.forEach((player) => {
+        if (player.id.startsWith("slot-")) return;
+        const animationState = newPositions[player.id];
+        const contractPosition = player.position;
+
+        if (!animationState) {
+          // Player is new, initialize their animation state.
+          newPositions[player.id] = {
+            visualPosition: contractPosition,
+            isAnimating: false,
+            path: [],
+            currentStep: 0,
+          };
+          changed = true;
+        } else {
+          // Player exists, decide whether to sync.
+          if (animationState.isAnimating) {
+            // Is animating, do nothing. The animation logic is in control.
+            return;
+          }
+
+          if (animationState.justAnimated) {
+            // Just finished an animation. The visual position is the source of truth for now.
+            // Check if the contract data has caught up.
+            if (animationState.visualPosition === contractPosition) {
+              // It has! We can turn off the flag and let normal syncing resume.
+              animationState.justAnimated = false;
+              changed = true;
+            }
+            // If it hasn't caught up, do nothing. Wait for the next `players` update.
+            return;
+          }
+
+          // Not animating and didn't just animate. Sync if positions diverge.
+          if (animationState.visualPosition !== contractPosition) {
+            animationState.visualPosition = contractPosition;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        return newPositions;
+      }
+      return prevPositions;
+    });
+  }, [players, freezeQuery]);
+
   // Previous polling effect kept as fallback but disabled when we already resolved via receipt
   useEffect(() => {
     if (!waitingForTransaction) return;
@@ -314,34 +430,80 @@ const SnakesAndLaddersPage: React.FC = () => {
     !!currentPlayerAddress &&
     currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
+  const getPositionForCell = (cellNumber: number) => {
+    if (!boardRect) return null;
+
+    const visualIndex = snakedCells.indexOf(cellNumber);
+    if (visualIndex === -1) return null;
+
+    const row = Math.floor(visualIndex / 10);
+    const col = visualIndex % 10;
+    const cellWidth = boardRect.width / 10;
+    const cellHeight = boardRect.height / 10;
+    const left = col * cellWidth + cellWidth / 2;
+    const top = row * cellHeight + cellHeight / 2;
+
+    return { top, left };
+  };
+
+  // Update animatePlayerAlongPath for smoother control
+  const animatePlayerAlongPath = (playerId: string, path: number[]) => {
+    setAnimatedPositions((prev) => ({
+      ...prev,
+      [playerId]: {
+        ...prev[playerId],
+        path,
+        isAnimating: true,
+        currentStep: 0,
+        visualPosition: path[0],
+        justAnimated: false,
+      },
+    }));
+
+    path.forEach((_, index) => {
+      if (index === 0) return;
+      setTimeout(() => {
+        setAnimatedPositions((prev) => {
+          const anim = prev[playerId];
+          if (!anim || !anim.isAnimating) return prev;
+
+          const isLastStep = index === path.length - 1;
+
+          return {
+            ...prev,
+            [playerId]: {
+              ...anim,
+              visualPosition: path[index],
+              currentStep: index,
+              isAnimating: !isLastStep,
+              justAnimated: isLastStep,
+            },
+          };
+        });
+      }, index * 400); // 400ms per step
+    });
+  };
+
+  // Update handleDiceRollComplete to use new animation system
   const handleDiceRollComplete = async () => {
-    // We'll keep the visual dice roll, but also start the contract interaction
     if (!isConnected || !address) {
       setIsRolling(false);
       return;
     }
 
     try {
-      // capture previous on-chain roll before sending tx
       const currentPlayerIndex = players.findIndex(
         (p) => p.id.toLowerCase() === address.toLowerCase()
       );
-      const currentInfo = playerInfoQueries[currentPlayerIndex]?.data as
-        | UserInfo
-        | undefined;
+      const currentInfo = playerInfoQueries[currentPlayerIndex]?.data as UserInfo | undefined;
       setPrevServerRoll(currentInfo ? Number(currentInfo[4]) : 0);
 
-      // Set waiting for transaction to true to keep the dice rolling
       setWaitingForTransaction(true);
       setLastTxTimestamp(Date.now());
-
-      // UI freeze from tx submission until 3s after dice settles
       setFreezeQuery(true);
 
-      const functionToCall =
-        currentPlayer?.hasRolledSix && isMyTurn ? "extraRoll" : "rollDice";
+      const functionToCall = currentPlayer?.hasRolledSix && isMyTurn ? "extraRoll" : "rollDice";
 
-      // send tx and get hash
       const txHash = await writeContractAsync({
         address: snakeGameContractInfo.address as `0x${string}`,
         abi: snakeGameContractInfo.abi,
@@ -350,21 +512,14 @@ const SnakesAndLaddersPage: React.FC = () => {
         gas: 200000n,
       });
 
-      // wait for receipt
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: txHash,
       });
-      console.log("logs", receipt.logs);
 
-      // decode DiceRolled event to get value
-      let finalRollValue: number = 0; // start with 0, will be updated
+      let finalRollValue: number = 0;
       for (const log of receipt.logs) {
         try {
-          if (
-            log.address.toLowerCase() !==
-            (snakeGameContractInfo.address as `0x${string}`).toLowerCase()
-          )
-            continue;
+          if (log.address.toLowerCase() !== snakeGameContractInfo.address.toLowerCase()) continue;
           const ev = decodeEventLog({
             abi: snakeGameContractInfo.abi,
             data: log.data,
@@ -377,27 +532,40 @@ const SnakesAndLaddersPage: React.FC = () => {
           }
         } catch {}
       }
-      console.log("finalRollValue", finalRollValue);
 
-      // immediately show face with ensured value
+      // Show dice face immediately
       setDiceValue(finalRollValue);
-      // stop spinning shortly after committing value so Dice receives both props in order
+      
+      // Stop dice spinning
       setTimeout(() => {
         setIsRolling(false);
         setWaitingForTransaction(false);
       }, 50);
 
-      // keep board frozen for extra 3s after dice settles
-      setTimeout(() => setFreezeQuery(false), 3000);
+      // Get current position and calculate path
+      const startPosition = currentInfo ? currentInfo[1] : 1;
+      const path = calculateMovementPath(startPosition, finalRollValue);
+
+      // Path needs a starting point for the animation to look right
+      const displayPath = [startPosition, ...path];
+
+      // Wait 2 seconds after dice face shows before starting movement
+      setTimeout(() => {
+        // Start animation with new system
+        if (address) {
+          animatePlayerAlongPath(address, displayPath);
+        }
+      }, 2000);
+
+      // Keep frozen until animation completes (now including the 2s delay)
+      const animationDuration = 2000 + displayPath.length * 400 + 500; // 2s delay + animation time + buffer
+      setTimeout(() => setFreezeQuery(false), animationDuration);
     } catch (error) {
       console.error("Roll dice error", error);
       setIsRolling(false);
       setWaitingForTransaction(false);
+      setFreezeQuery(false);
     }
-  };
-
-  const getPlayersInCell = (displayedCellNumber: number) => {
-    return players.filter((p) => p.position === displayedCellNumber);
   };
 
   const resetGame = () => {
@@ -552,12 +720,11 @@ const SnakesAndLaddersPage: React.FC = () => {
 
         <div className="flex-grow flex items-center justify-center">
           <div
+            ref={boardRef}
             className={`w-auto h-full aspect-square bg-[#1a0f09] border-2 border-[#8b4513] relative transform transition-transform duration-300 ${boardScaleClass}`}
           >
             <div className="grid grid-cols-10 gap-[1px] w-full h-full">
               {snakedCells.map((displayedNumber, index) => {
-                const playersInCell = getPlayersInCell(displayedNumber);
-
                 let cellBgColor = index % 2 === 0 ? "#2c1810" : "#3b2010";
 
                 return (
@@ -569,21 +736,61 @@ const SnakesAndLaddersPage: React.FC = () => {
                     <span className="absolute top-0 left-1 p-0.5 text-gray-300 text-[7px] sm:text-[9px] z-10">
                       {displayedNumber}
                     </span>
-                    <div className="absolute inset-0 flex flex-wrap items-center justify-center p-0.5 z-10">
-                      {playersInCell.map((player) => (
-                        <img
-                          key={player.id}
-                          src={player.avatarUrl}
-                          alt={player.name}
-                          title={`${player.name} (Pos: ${player.position})`}
-                          className="w-1/2 h-1/2 rounded-full border border-[#8b4513] object-cover bg-gray-700"
-                        />
-                      ))}
-                    </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Player Tokens Layer */}
+            <div className="absolute inset-0 z-10 pointer-events-none">
+              {enhancedPlayers.map((player, index) => {
+                if (player.id.startsWith("slot-")) return null;
+
+                const animState = animatedPositions[player.id];
+                const visualPosition = animState
+                  ? animState.visualPosition
+                  : player.position;
+
+                const cellPos = getPositionForCell(visualPosition);
+                if (!cellPos) return null;
+
+                const multiplePlayersInCell = players.filter(
+                  (p) =>
+                    (animatedPositions[p.id]?.visualPosition || p.position) ===
+                    visualPosition
+                );
+
+                let offsetIndex = -1;
+                if (multiplePlayersInCell.length > 1) {
+                  offsetIndex = multiplePlayersInCell.findIndex(
+                    (p) => p.id === player.id
+                  );
+                }
+
+                return (
+                  <img
+                    key={player.id}
+                    src={player.avatarUrl}
+                    alt={player.name}
+                    title={`${player.name} (Pos: ${player.position})`}
+                    className="w-[5%] h-[5%] rounded-full border border-[#8b4513] object-cover bg-gray-700 shadow-lg"
+                    style={{
+                      position: "absolute",
+                      top: `${cellPos.top}px`,
+                      left: `${cellPos.left}px`,
+                      transform: `translate(-50%, -50%)`,
+                      transition:
+                        "top 0.35s ease-in-out, left 0.35s ease-in-out",
+                      zIndex:
+                        multiplePlayersInCell.length > 1
+                          ? 10 + offsetIndex
+                          : 10,
+                    }}
+                  />
+                );
+              })}
+            </div>
+
             <svg
               className="absolute top-0 left-0 w-full h-full z-0"
               style={{ pointerEvents: "none" }}
