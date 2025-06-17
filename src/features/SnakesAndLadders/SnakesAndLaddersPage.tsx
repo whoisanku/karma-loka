@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useReadContract, useWriteContract, useAccount, usePublicClient } from "wagmi";
 import { decodeEventLog } from "viem";
@@ -242,6 +242,30 @@ const SnakesAndLaddersPage: React.FC = () => {
   // freezeQuery declaration moved above to avoid hoisting error
   const [prevServerRoll, setPrevServerRoll] = useState<number>(0);
 
+  // Track the avatar display positions so we can animate moves step by step
+  const [displayPositions, setDisplayPositions] = useState<Record<string, number>>({});
+  const prevActualPositionsRef = useRef<Record<string, number>>({});
+
+  // Load saved display positions when entering the room
+  useEffect(() => {
+    const stored = localStorage.getItem(`displayPositions-${numericRoomId}`);
+    if (stored) {
+      try {
+        setDisplayPositions(JSON.parse(stored));
+      } catch {
+        /* ignore malformed storage */
+      }
+    }
+  }, [numericRoomId]);
+
+  // Persist display positions
+  useEffect(() => {
+    localStorage.setItem(
+      `displayPositions-${numericRoomId}`,
+      JSON.stringify(displayPositions)
+    );
+  }, [displayPositions, numericRoomId]);
+
   const winnerAddress =
     roomInfo &&
     (roomInfo as RoomInfoType)[6] !==
@@ -321,6 +345,39 @@ const SnakesAndLaddersPage: React.FC = () => {
     !!currentPlayerAddress &&
     currentPlayerAddress.toLowerCase() === address.toLowerCase();
 
+  // Animate player token moves whenever on-chain position changes
+  useEffect(() => {
+    players.forEach((p) => {
+      const prevActual = prevActualPositionsRef.current[p.id];
+      const currentDisplay = displayPositions[p.id];
+
+      // Initialize refs and display positions when joining/reloading
+      if (prevActual === undefined) {
+        prevActualPositionsRef.current[p.id] = p.position;
+        setDisplayPositions((dp) => ({ ...dp, [p.id]: p.position }));
+        return;
+      }
+
+      if (prevActual !== p.position) {
+        const from = currentDisplay ?? prevActual;
+        const to = p.position;
+        const step = from < to ? 1 : -1;
+        const steps = Math.abs(to - from);
+        for (let i = 1; i <= steps; i++) {
+          const pos = from + step * i;
+          setTimeout(() => {
+            setDisplayPositions((dp) => ({ ...dp, [p.id]: pos }));
+          }, i * 300);
+        }
+        // ensure final position stored
+        setTimeout(() => {
+          prevActualPositionsRef.current[p.id] = p.position;
+          setDisplayPositions((dp) => ({ ...dp, [p.id]: to }));
+        }, (steps + 1) * 300);
+      }
+    });
+  }, [players]);
+
   const handleDiceRollComplete = async (visualRoll: number) => {
     // We'll keep the visual dice roll, but also start the contract interaction
     if (!isConnected || !address) {
@@ -397,7 +454,9 @@ const SnakesAndLaddersPage: React.FC = () => {
   };
 
   const getPlayersInCell = (displayedCellNumber: number) => {
-    return players.filter((p) => p.position === displayedCellNumber);
+    return players.filter(
+      (p) => (displayPositions[p.id] ?? p.position) === displayedCellNumber
+    );
   };
 
   const resetGame = () => {
@@ -542,7 +601,7 @@ const SnakesAndLaddersPage: React.FC = () => {
                           key={player.id}
                           src={player.avatarUrl}
                           alt={player.name}
-                          title={`${player.name} (Pos: ${player.position})`}
+                          title={`${player.name} (Pos: ${displayPositions[player.id] ?? player.position})`}
                           className="w-1/2 h-1/2 rounded-full border border-[#8b4513] object-cover bg-gray-700"
                         />
                       ))}
