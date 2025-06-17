@@ -207,6 +207,8 @@ const SnakesAndLaddersPage: React.FC = () => {
     })
   );
 
+  const allPlayerInfoLoaded = playerInfoQueries.every((q) => q.data !== undefined);
+
   const { profiles } = useFarcasterProfiles(
     (contractPlayers as string[]) || []
   );
@@ -234,6 +236,7 @@ const SnakesAndLaddersPage: React.FC = () => {
     useState<Record<string, number>>({});
   const timeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>[]>>({});
   const prevPositionsRef = useRef<Record<string, number>>({});
+  const [initialPositionsLoaded, setInitialPositionsLoaded] = useState(false);
 
   const playersPositionsKey = players
     .map((p) => `${p.id}-${p.position}`)
@@ -261,24 +264,35 @@ const SnakesAndLaddersPage: React.FC = () => {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  // Initialize display and previous positions when players data loads
+  // Initialize display and previous positions when player info loads
   useEffect(() => {
+    if (!allPlayerInfoLoaded) return;
+
     setDisplayPositions((prev) => {
       const updated = { ...prev };
       players.forEach((p) => {
         if (updated[p.id] === undefined) {
           updated[p.id] = p.position;
         }
-        if (prevPositionsRef.current[p.id] === undefined) {
-          prevPositionsRef.current[p.id] = p.position;
-        }
       });
       return updated;
     });
-  }, [players]);
+
+    players.forEach((p) => {
+      if (prevPositionsRef.current[p.id] === undefined) {
+        prevPositionsRef.current[p.id] = p.position;
+      }
+    });
+
+    if (!initialPositionsLoaded) {
+      setInitialPositionsLoaded(true);
+    }
+  }, [allPlayerInfoLoaded, players]);
 
   // Animate piece movement only after new dice rolls
   useEffect(() => {
+    if (!initialPositionsLoaded) return;
+
     players.forEach((player) => {
       const prev = prevPositionsRef.current[player.id];
       if (prev === undefined) {
@@ -307,25 +321,22 @@ const SnakesAndLaddersPage: React.FC = () => {
         path.push(p);
       }
 
-      let afterSnake = SNAKES_AND_LADDERS[potential] ?? potential;
-      if (afterSnake !== potential) {
-        const step2 = afterSnake > potential ? 1 : -1;
-        for (
-          let p = potential + step2;
-          step2 > 0 ? p <= afterSnake : p >= afterSnake;
-          p += step2
-        ) {
-          path.push(p);
+      const final = SNAKES_AND_LADDERS[potential] ?? potential;
+      if (final !== potential) {
+        if (final > potential) {
+          // Ladder: jump directly to final cell
+          path.push(final);
+        } else {
+          // Snake: slide step by step downwards
+          for (let p = potential - 1; p >= final; p--) {
+            path.push(p);
+          }
         }
       }
 
-      if (afterSnake !== player.position) {
-        const step3 = player.position > afterSnake ? 1 : -1;
-        for (
-          let p = afterSnake + step3;
-          step3 > 0 ? p <= player.position : p >= player.position;
-          p += step3
-        ) {
+      if (final !== player.position) {
+        const step3 = player.position > final ? 1 : -1;
+        for (let p = final + step3; step3 > 0 ? p <= player.position : p >= player.position; p += step3) {
           path.push(p);
         }
       }
@@ -345,7 +356,7 @@ const SnakesAndLaddersPage: React.FC = () => {
       Object.values(timeoutsRef.current).forEach((tos) => tos.forEach(clearTimeout));
       timeoutsRef.current = {};
     };
-  }, [playersPositionsKey]);
+  }, [playersPositionsKey, initialPositionsLoaded]);
 
   // Previous polling effect kept as fallback but disabled when we already resolved via receipt
   useEffect(() => {
