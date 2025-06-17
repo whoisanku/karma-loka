@@ -661,7 +661,7 @@ const SnakesAndLaddersPage: React.FC = () => {
               />
             );
           })()}
-          <div className="absolute left-1/2 transform -translate-x-1/2 w-full px-20 text-center">
+          <div className="absolute left-1/2 transform -translate-x-1/2 w-full px-20 text-center pointer-events-none">
             {!winner && (
               <>
                 {currentPlayer ? (

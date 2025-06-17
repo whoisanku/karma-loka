@@ -395,8 +395,33 @@ const GameCard = ({
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
 
+  const creatorDisplayName = useMemo(() => {
+    const name = farcasterProfiles[game.creator]?.username ?? game.creator;
+    if (name.startsWith("0x") && name.length > 12) {
+      return `${name.substring(0, 6)}...${name.substring(name.length - 4)}`;
+    }
+    if (name.length > 15) {
+      return name.substring(0, 15) + "...";
+    }
+    return name;
+  }, [game.creator, farcasterProfiles]);
+
   // Component to render game button with hasJoined check
   const GameButton = () => {
+    if (
+      game.winner &&
+      game.winner !== "0x0000000000000000000000000000000000000000"
+    ) {
+      const winnerName =
+        farcasterProfiles[game.winner]?.username ?? game.winner;
+      return (
+        <div className="text-right">
+          <p className="text-lg font-bold text-[#ffd700]">Winner!</p>
+          <p className="text-sm">{winnerName}</p>
+        </div>
+      );
+    }
+
     const { data: joined } = useReadContract({
       address: snakeGameContractInfo.address as `0x${string}`,
       abi: snakeGameContractInfo.abi,
@@ -501,15 +526,16 @@ const GameCard = ({
         </div>
         <span className="text-sm">Prize: {game.prize.toFixed(2)} USD</span>
       </div>
-      <p className="text-sm mb-1">
-        Creator: {farcasterProfiles[game.creator]?.username ?? game.creator}
-      </p>
+      <p className="text-sm mb-1">Creator: {creatorDisplayName}</p>
       <p className="text-xs text-gray-400 mb-1">
         Players: {game.players.length}/{game.requiredParticipants} required
       </p>
-      {game.started && (
+      {game.winner &&
+      game.winner !== "0x0000000000000000000000000000000000000000" ? (
+        <p className="text-xs text-yellow-400 mb-1">Game Over</p>
+      ) : game.started ? (
         <p className="text-xs text-green-400 mb-1">Game Started</p>
-      )}
+      ) : null}
 
       <div className="flex justify-between items-center mt-3 mb-1">
         <div className="flex items-center">

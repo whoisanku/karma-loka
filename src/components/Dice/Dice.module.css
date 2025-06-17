@@ -19,6 +19,7 @@
   margin: 0;
   padding: 0;
   position: relative;
+  pointer-events: none;
 }
 .even-roll {
   transition: transform 1.5s ease-out;
@@ -47,6 +48,8 @@
   position: absolute;
   backface-visibility: hidden;
   transform-origin: center center center;
+  cursor: inherit;
+  pointer-events: none;
 }
 .dot {
   align-self: center;
@@ -57,6 +60,8 @@
   height: 0.35rem;
   justify-self: center;
   width: 0.35rem;
+  pointer-events: none;
+  cursor: inherit;
 }
 .even-roll[data-roll="1"] {
   transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg);
