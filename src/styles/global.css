@@ -24,8 +24,8 @@
 
 /* Content from App.css below */
 @font-face {
-  font-family: "MorrisRoman";
-  src: url("/MorrisRoman-Black.ttf") format("truetype");
+  font-family: "KGRedHands";
+  src: url("/KGRedHands.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
 }
@@ -35,7 +35,7 @@ body {
   background: #2c1810;
   color: #ffd700;
   min-height: 100vh;
-  font-family: "MorrisRoman", serif;
+  font-family: "KGRedHands", serif;
   background-image: radial-gradient(circle at center, #3c2815 0%, #2c1810 100%);
   /* Hide scrollbar for IE, Edge and Firefox */
   -ms-overflow-style: none; /* IE and Edge */
@@ -108,7 +108,7 @@ body {
   color: #2c1810;
   border-radius: 10px;
   cursor: pointer;
-  font-family: "MorrisRoman", serif;
+  font-family: "KGRedHands", serif;
   text-transform: uppercase;
   transition: all 0.3s ease;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);

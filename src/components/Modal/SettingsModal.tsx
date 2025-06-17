@@ -50,7 +50,7 @@ export default function SettingsModal({
           </svg>
         </button>
 
-        <h2 className="text-[#ffd700] text-xl mb-6 text-center font-['MorrisRoman']">
+        <h2 className="text-[#ffd700] text-xl mb-6 text-center font-['KGRedHands']">
           Settings
         </h2>
 

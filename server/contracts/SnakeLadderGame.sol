@@ -25,6 +25,7 @@ contract SnakeGame {
         uint256 currentPlayerIndex;
         address winner;
         string metadataUri;
+        mapping(address => bool) hasRolledSix;
     }
 
     mapping(uint256 => Room) private roomStorage;
@@ -103,6 +104,7 @@ contract SnakeGame {
         newRoom.lastRollSlot[msg.sender] = type(uint256).max;
         newRoom.lastPositions[msg.sender] = 1;
         newRoom.currentPlayerIndex = 0;
+        newRoom.hasRolledSix[msg.sender] = false;
 
         emit RoomCreated(roomCount, msg.sender);
     }
@@ -119,6 +121,7 @@ contract SnakeGame {
         room.positions[msg.sender] = 1;
         room.lastRollSlot[msg.sender] = type(uint256).max;
         room.lastPositions[msg.sender] = 1;
+        room.hasRolledSix[msg.sender] = false;
 
         emit Participated(roomId, msg.sender);
 
@@ -132,7 +135,7 @@ contract SnakeGame {
     function getCurrentSlot(Room storage room) internal view returns (uint256) {
         require(room.started, "Game not started");
         // return (block.timestamp - room.gameStartTime) / 1 days;
-        return (block.timestamp - room.gameStartTime) / 5 minutes;
+        return block.timestamp - room.gameStartTime;
     }
 
     function applySnakeLadder(uint8 position) internal view returns (uint8) {
@@ -148,6 +151,7 @@ contract SnakeGame {
         require(room.hasJoined[msg.sender], "Not joined");
         require(msg.sender == room.players[room.currentPlayerIndex], "Not your turn");
         require(room.winner == address(0), "Game over");
+        require(!room.hasRolledSix[msg.sender], "Must use extra roll");
 
         uint256 currentSlot = getCurrentSlot(room);
         require(room.lastRollSlot[msg.sender] < currentSlot || room.lastRollSlot[msg.sender] == type(uint256).max, "Roll not allowed in current slot");
@@ -157,20 +161,71 @@ contract SnakeGame {
         uint8 finalRoll = baseRoll + bonus;
         if (finalRoll > 6) finalRoll = 6;
 
-        // One-time extra roll if finalRoll is 6
-        if (finalRoll == 6) {
-            uint8 extraRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, "bonus"))) % 6 + 1);
-            finalRoll += extraRoll;
-        }
-
         uint8 previousPosition = room.positions[msg.sender];
         room.lastPositions[msg.sender] = previousPosition;
-        uint8 newPos = previousPosition + finalRoll;
-        if (newPos > 100) newPos = 100;
+
+        uint8 newPos;
+        uint16 potentialPos = uint16(previousPosition) + uint16(finalRoll);
+        if (potentialPos > 100) {
+            newPos = uint8(100 - (potentialPos - 100)); // Bounce back
+        } else {
+            newPos = uint8(potentialPos);
+        }
+
         newPos = applySnakeLadder(newPos);
         room.positions[msg.sender] = newPos;
 
-        if (newPos >= 100) {
+        if (newPos == 100) {
+            // Player wins.
+            room.winner = msg.sender;
+            stakeToken.safeTransfer(msg.sender, room.stakeAmount * room.players.length);
+            if (leaderboard[msg.sender] == 0) {
+                leaderboardPlayers.push(msg.sender);
+            }
+            leaderboard[msg.sender] += 1;
+            emit GameWon(roomId, msg.sender);
+            emit LeaderboardUpdated(msg.sender, leaderboard[msg.sender]);
+        } else if (finalRoll == 6) {
+            // Rolled a 6, gets an extra turn.
+            room.hasRolledSix[msg.sender] = true;
+        } else {
+            // Normal move, turn passes to the next player.
+            room.lastRollSlot[msg.sender] = currentSlot;
+            room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
+        }
+        
+        room.lastRollValue[msg.sender] = finalRoll;
+        emit DiceRolled(roomId, msg.sender, finalRoll);
+        return finalRoll;
+    }
+
+    function extraRoll(uint256 roomId) public returns (uint8) {
+        Room storage room = roomStorage[roomId];
+        require(room.started, "Not started");
+        require(room.hasJoined[msg.sender], "Not joined");
+        require(room.winner == address(0), "Game over");
+        require(room.hasRolledSix[msg.sender], "No extra roll granted");
+        require(msg.sender == room.players[room.currentPlayerIndex], "Not your turn");
+
+        uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, "extra"))) % 6 + 1);
+        uint8 finalRoll = baseRoll;
+
+        uint8 previousPosition = room.positions[msg.sender];
+        room.lastPositions[msg.sender] = previousPosition;
+
+        uint8 newPos;
+        uint16 potentialPos = uint16(previousPosition) + uint16(finalRoll);
+        if (potentialPos > 100) {
+            newPos = uint8(100 - (potentialPos - 100)); // Bounce back
+        } else {
+            newPos = uint8(potentialPos);
+        }
+
+        newPos = applySnakeLadder(newPos);
+        room.positions[msg.sender] = newPos;
+
+        if (newPos == 100) {
+            // Player wins.
             room.winner = msg.sender;
             stakeToken.safeTransfer(msg.sender, room.stakeAmount * room.players.length);
             if (leaderboard[msg.sender] == 0) {
@@ -180,13 +235,15 @@ contract SnakeGame {
             emit GameWon(roomId, msg.sender);
             emit LeaderboardUpdated(msg.sender, leaderboard[msg.sender]);
         }
-
+        
         room.lastRollValue[msg.sender] = finalRoll;
-        room.lastRollSlot[msg.sender] = currentSlot;
         emit DiceRolled(roomId, msg.sender, finalRoll);
-        if (room.winner == address(0)) {
-            room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
-        }
+
+        uint256 currentSlot = getCurrentSlot(room);
+        room.hasRolledSix[msg.sender] = false;
+        room.lastRollSlot[msg.sender] = currentSlot;
+        room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
+
         return finalRoll;
     }
 
@@ -205,19 +262,22 @@ contract SnakeGame {
                 uint8 finalRoll = baseRoll + bonus;
                 if (finalRoll > 6) finalRoll = 6;
 
-                if (finalRoll == 6) {
-                    uint8 extraRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, player, "bonus"))) % 6 + 1);
-                    finalRoll += extraRoll;
-                }
-
                 uint8 previousPosition = room.positions[player];
                 room.lastPositions[player] = previousPosition;
-                uint8 newPos = previousPosition + finalRoll;
-                if (newPos > 100) newPos = 100;
+
+                uint8 newPos;
+                uint16 potentialPos = uint16(previousPosition) + uint16(finalRoll);
+                if (potentialPos > 100) {
+                    newPos = uint8(100 - (potentialPos - 100)); // Bounce back
+                } else {
+                    newPos = uint8(potentialPos);
+                }
                 newPos = applySnakeLadder(newPos);
                 room.positions[player] = newPos;
 
-                if (newPos >= 100) {
+                emit DiceRolled(roomId, player, finalRoll);
+
+                if (newPos == 100) {
                     room.winner = player;
                     stakeToken.safeTransfer(player, room.stakeAmount * room.players.length);
                     if (leaderboard[player] == 0) {
@@ -229,9 +289,36 @@ contract SnakeGame {
                     return;
                 }
 
+                if (finalRoll == 6) {
+                    uint8 extraRollValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, player, "extra"))) % 6 + 1);
+                    previousPosition = newPos;
+                    room.lastPositions[player] = previousPosition;
+                    
+                    uint16 extraPotentialPos = uint16(previousPosition) + uint16(extraRollValue);
+                    if (extraPotentialPos > 100) {
+                        newPos = uint8(100 - (extraPotentialPos - 100)); // Bounce back
+                    } else {
+                        newPos = uint8(extraPotentialPos);
+                    }
+                    newPos = applySnakeLadder(newPos);
+                    room.positions[player] = newPos;
+                    emit DiceRolled(roomId, player, extraRollValue);
+
+                    if (newPos == 100) {
+                        room.winner = player;
+                        stakeToken.safeTransfer(player, room.stakeAmount * room.players.length);
+                        if (leaderboard[player] == 0) {
+                            leaderboardPlayers.push(player);
+                        }
+                        leaderboard[player] += 1;
+                        emit GameWon(roomId, player);
+                        emit LeaderboardUpdated(player, leaderboard[player]);
+                        return;
+                    }
+                }
+
                 room.lastRollValue[player] = finalRoll;
                 room.lastRollSlot[player] = currentSlot;
-                emit DiceRolled(roomId, player, finalRoll);
             }
         }
     }
@@ -276,6 +363,7 @@ contract SnakeGame {
     function getUserInfo(uint256 roomId, address player) external view returns (
         uint8 lastPosition,
         uint8 currentPosition,
+        bool hasRolledSix,
         uint256 lastRollSlot,
         uint8 lastRoll,
         uint8 prasad
@@ -285,6 +373,7 @@ contract SnakeGame {
         return (
             room.lastPositions[player],
             room.positions[player],
+            room.hasRolledSix[player],
             room.lastRollSlot[player],
             room.lastRollValue[player],
             room.prasadMeter[player]

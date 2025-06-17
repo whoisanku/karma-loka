@@ -1,6 +1,7 @@
 import type { SDKUser } from "../../types";
 import { useAccount } from "wagmi";
 import { useState } from "react";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -14,6 +15,11 @@ export default function ProfileModal({
   fcUser,
 }: ProfileModalProps) {
   const { address } = useAccount();
+  // Fetch Farcaster profile for connected address
+  const { profiles: fcProfiles } = useFarcasterProfiles(
+    address ? [address] : []
+  );
+  const walletProfile = address ? fcProfiles[address] : null;
   const [isCopied, setIsCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -47,7 +53,8 @@ export default function ProfileModal({
             <img
               src={
                 fcUser?.pfpUrl ||
-                "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                walletProfile?.pfp?.url ||
+                `https://api.dicebear.com/7.x/avataaars/svg?seed=${address ?? "Felix"}`
               }
               alt="Profile"
               className="w-full h-full object-cover"
@@ -108,19 +115,25 @@ export default function ProfileModal({
               </button>
             </div>
           )}
-          <h2 className="text-[#ffd700] text-xl mb-4 font-['MorrisRoman']">
+          <h2 className="text-[#ffd700] text-xl mb-4 font-['KGRedHands']">
             Adventurer Profile
           </h2>
 
           <div className="space-y-3 text-white text-sm">
             <div className="bg-[#1a0f09] rounded-lg p-2.5 shadow-inner">
               <p className="text-[#ffd700] text-xs mb-1">Username</p>
-              <p>{fcUser ? "@" + fcUser.username : "Not Connected"}</p>
+              <p>
+                {fcUser
+                  ? "@" + fcUser.username
+                  : walletProfile?.username
+                    ? "@" + walletProfile.username
+                    : "Not Connected"}
+              </p>
             </div>
 
             <div className="bg-[#1a0f09] rounded-lg p-2.5 shadow-inner">
               <p className="text-[#ffd700] text-xs mb-1">Farcaster ID</p>
-              <p>{fcUser?.fid || "Not Connected"}</p>
+              <p>{fcUser?.fid || walletProfile?.fid || "Not Connected"}</p>
             </div>
 
             <div className="bg-[#1a0f09] rounded-lg p-2.5 shadow-inner">

@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { PiUsersFill, PiUsersThreeFill, PiUsersFourFill } from "react-icons/pi";
 import type { SDKUser } from "../../types";
-import { formatUnits, parseUnits } from 'viem';
-import { useCreateGame, type TransactionStep } from '../../hooks/useCreateGame';
-import { useStorage } from '../../hooks/useStorage';
+import { formatUnits, parseUnits } from "viem";
+import { useCreateGame } from "../../hooks/useCreateGame";
+import { useStorage } from "../../hooks/useStorage";
+import { useAccount } from "wagmi";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -16,9 +18,23 @@ export default function CreateGamePage({
   handleButtonClick,
 }: CreateGamePageProps) {
   const navigate = useNavigate();
+  const { address } = useAccount();
+  const { profiles: fcProfiles } = useFarcasterProfiles(
+    address ? [address] : []
+  );
+  const walletProfile = address ? fcProfiles[address] : null;
+  const truncateAddress = (addr: string | undefined) => {
+    if (!addr) return "Anon";
+    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  };
+
   const defaultRoomName = fcUser
     ? `${fcUser.username}'s room`
-    : "Adventurer's room";
+    : walletProfile?.username
+      ? `${walletProfile.username}'s room`
+      : address
+        ? `${truncateAddress(address)}'s room`
+        : "Adventurer's room";
 
   const [gameName, setGameName] = useState("");
   const [prizeAmount, setPrizeAmount] = useState<string>("");
@@ -40,10 +56,10 @@ export default function CreateGamePage({
     connectWallet,
     resetTransactionState,
   } = useCreateGame(prizeAmount, selectedPlayers);
-      
+
   // Effect to handle completion
   useEffect(() => {
-    if (currentStep === 'completed') {
+    if (currentStep === "completed") {
       // Navigate after showing success message
       setTimeout(() => {
         navigate("/explore");
@@ -54,7 +70,7 @@ export default function CreateGamePage({
   const handleSubmit = useCallback(async () => {
     // First, ensure wallet is connected
     if (!isConnected) {
-      console.log('Wallet not connected, attempting to connect...');
+      console.log("Wallet not connected, attempting to connect...");
       await connectWallet();
       return;
     }
@@ -70,7 +86,7 @@ export default function CreateGamePage({
 
     // Wait a moment to ensure connection is fully established
     if (isConnecting) {
-      console.log('Still connecting, please wait...');
+      console.log("Still connecting, please wait...");
       return;
     }
 
@@ -80,34 +96,34 @@ export default function CreateGamePage({
       const metadataResponse = await uploadGameMetadata(finalGameName);
       console.log("Game metadata URI:", metadataResponse.uri);
 
-    handleButtonClick();
-    resetTransactionState();
+      handleButtonClick();
+      resetTransactionState();
 
-    // Add a small delay to ensure all state is updated
-    setTimeout(async () => {
-      if (needsApproval) {
+      // Add a small delay to ensure all state is updated
+      setTimeout(async () => {
+        if (needsApproval) {
           await handleApproveUSDC(metadataResponse.uri);
-      } else {
+        } else {
           await handleCreateRoom(metadataResponse.uri);
-      }
-    }, 100);
+        }
+      }, 100);
     } catch (error) {
-      console.error('Error during game creation:', error);
+      console.error("Error during game creation:", error);
     }
   }, [
-    isConnected, 
-    prizeAmount, 
-    usdcBalance, 
+    isConnected,
+    prizeAmount,
+    usdcBalance,
     needsApproval,
     isConnecting,
     gameName,
     defaultRoomName,
     connectWallet,
-    handleButtonClick, 
-    resetTransactionState, 
-    handleApproveUSDC, 
+    handleButtonClick,
+    resetTransactionState,
+    handleApproveUSDC,
     handleCreateRoom,
-    uploadGameMetadata
+    uploadGameMetadata,
   ]);
 
   const handleCancel = () => {
@@ -116,64 +132,87 @@ export default function CreateGamePage({
     navigate("/explore");
   };
 
-  const isLoading = currentStep !== 'idle' && currentStep !== 'completed' && currentStep !== 'error';
-  const isDisabled = !isConnected || isLoading || !prizeAmount || Number(prizeAmount) <= 0 || isConnecting;
+  const isLoading =
+    currentStep !== "idle" &&
+    currentStep !== "completed" &&
+    currentStep !== "error";
+  const isDisabled =
+    !isConnected ||
+    isLoading ||
+    !prizeAmount ||
+    Number(prizeAmount) <= 0 ||
+    isConnecting;
 
   const getButtonText = () => {
-    if (isConnecting) return 'Connecting Wallet...';
-    
+    if (isConnecting) return "Connecting Wallet...";
+
     switch (currentStep) {
-      case 'approving':
-        return 'Approving USDC...';
-      case 'waiting_approval':
-        return 'Confirming Approval...';
-      case 'creating_room':
-        return 'Creating Quest...';
-      case 'waiting_creation':
-        return 'Confirming Creation...';
-      case 'completed':
-        return 'Quest Created!';
-      case 'error':
-        return 'Try Again';
+      case "approving":
+        return "Approving USDC...";
+      case "waiting_approval":
+        return "Confirming Approval...";
+      case "creating_room":
+        return "Creating Quest...";
+      case "waiting_creation":
+        return "Confirming Creation...";
+      case "completed":
+        return "Quest Created!";
+      case "error":
+        return "Try Again";
       default:
-        if (!isConnected) return 'Connect Wallet';
-        if (needsApproval && parseUnits(prizeAmount || "0", 6) > 0n) return 'Approve USDC & Create Quest';
-        return 'Create Quest';
+        if (!isConnected) return "Connect Wallet";
+        if (needsApproval && parseUnits(prizeAmount || "0", 6) > 0n)
+          return "Approve USDC & Create Quest";
+        return "Create Quest";
     }
   };
 
   const getStatusMessage = () => {
-    if (currentStep === 'error' && errorMessage) {
+    if (currentStep === "error" && errorMessage) {
       return <p className="text-red-500">❌ Error: {errorMessage}</p>;
     }
-    
+
     if (isConnecting) {
       return <p className="text-yellow-400">🔄 Connecting wallet...</p>;
     }
-    
+
     if (!isConnected) {
-      return <p className="text-red-400">⚠️ Wallet not connected. Please connect your wallet.</p>;
+      return (
+        <p className="text-red-400">
+          ⚠️ Wallet not connected. Please connect your wallet.
+        </p>
+      );
     }
 
     if (usdcBalance !== undefined) {
       const balanceFormatted = formatUnits(usdcBalance, 6);
       if (parseUnits(prizeAmount || "0", 6) > usdcBalance) {
-        return <p className="text-red-400">❌ Insufficient USDC balance. You have {balanceFormatted} USDC</p>;
+        return (
+          <p className="text-red-400">
+            ❌ Insufficient USDC balance. You have {balanceFormatted} USDC
+          </p>
+        );
       }
-      return <p className="text-green-400">💰 USDC Balance: {balanceFormatted}</p>;
+      return (
+        <p className="text-green-400">💰 USDC Balance: {balanceFormatted}</p>
+      );
     }
 
     switch (currentStep) {
-      case 'approving':
-        return <p className="text-yellow-400">🔄 Please confirm approval in your wallet...</p>;
-      case 'waiting_approval':
+      case "approving":
         return (
           <p className="text-yellow-400">
-            ⏳ Confirming approval... 
+            🔄 Please confirm approval in your wallet...
+          </p>
+        );
+      case "waiting_approval":
+        return (
+          <p className="text-yellow-400">
+            ⏳ Confirming approval...
             {approvalTxHash && (
-              <a 
-                href={`https://sepolia.basescan.org/tx/${approvalTxHash}`} 
-                target="_blank" 
+              <a
+                href={`https://sepolia.basescan.org/tx/${approvalTxHash}`}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="underline ml-1"
               >
@@ -182,16 +221,20 @@ export default function CreateGamePage({
             )}
           </p>
         );
-      case 'creating_room':
-        return <p className="text-yellow-400">🔄 Please confirm room creation in your wallet...</p>;
-      case 'waiting_creation':
+      case "creating_room":
         return (
           <p className="text-yellow-400">
-            ⏳ Confirming creation... 
+            🔄 Please confirm room creation in your wallet...
+          </p>
+        );
+      case "waiting_creation":
+        return (
+          <p className="text-yellow-400">
+            ⏳ Confirming creation...
             {createRoomTxHash && (
-              <a 
-                href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`} 
-                target="_blank" 
+              <a
+                href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="underline ml-1"
               >
@@ -200,14 +243,14 @@ export default function CreateGamePage({
             )}
           </p>
         );
-      case 'completed':
+      case "completed":
         return (
           <p className="text-green-500">
-            ✅ Quest created successfully! Redirecting... 
+            ✅ Quest created successfully! Redirecting...
             {createRoomTxHash && (
-              <a 
-                href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`} 
-                target="_blank" 
+              <a
+                href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="underline ml-1"
               >
@@ -218,7 +261,11 @@ export default function CreateGamePage({
         );
       default:
         if (needsApproval && parseUnits(prizeAmount || "0", 6) > 0n) {
-          return <p className="text-yellow-400">⚠️ USDC approval required for prize pool.</p>;
+          return (
+            <p className="text-yellow-400">
+              ⚠️ USDC approval required for prize pool.
+            </p>
+          );
         }
         return null;
     }
@@ -295,9 +342,10 @@ export default function CreateGamePage({
                   handleButtonClick();
                 }}
                 className={`w-full items-center justify-center p-2.5 rounded-md text-md transition-colors duration-200
-                  ${selectedPlayers === option.value
-                    ? "bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] border-2 border-transparent"
-                    : "bg-[#1a0f09] hover:bg-[#3a251a] text-white border-2 border-[#8b4513]"
+                  ${
+                    selectedPlayers === option.value
+                      ? "bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] border-2 border-transparent"
+                      : "bg-[#1a0f09] hover:bg-[#3a251a] text-white border-2 border-[#8b4513]"
                   }`}
               >
                 {option.icon}
@@ -310,16 +358,19 @@ export default function CreateGamePage({
         <div className="min-h-[48px] text-sm space-y-1">
           {getStatusMessage()}
           {/* Show approval amount info */}
-          {currentStep === 'approving' && parseUnits(prizeAmount || "0", 6) > 0n && (
-            <p className="text-blue-400">
-              📝 Approving exactly {prizeAmount} USDC (no excess)
-            </p>
-          )}
-          {needsApproval && parseUnits(prizeAmount || "0", 6) > 0n && currentStep === 'idle' && (
-            <p className="text-blue-400">
-              ℹ️ Will approve exactly {prizeAmount} USDC
-            </p>
-          )}
+          {currentStep === "approving" &&
+            parseUnits(prizeAmount || "0", 6) > 0n && (
+              <p className="text-blue-400">
+                📝 Approving exactly {prizeAmount} USDC (no excess)
+              </p>
+            )}
+          {needsApproval &&
+            parseUnits(prizeAmount || "0", 6) > 0n &&
+            currentStep === "idle" && (
+              <p className="text-blue-400">
+                ℹ️ Will approve exactly {prizeAmount} USDC
+              </p>
+            )}
         </div>
 
         {/* Action Buttons */}
