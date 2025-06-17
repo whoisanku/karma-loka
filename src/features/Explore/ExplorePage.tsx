@@ -215,6 +215,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               game={game}
               onJoinClick={handleJoinQuestClick}
               farcasterProfiles={farcasterProfiles}
+              handleButtonClick={handleButtonClick}
             />
           ))}
         </div>
@@ -386,10 +387,12 @@ const GameCard = ({
   game,
   onJoinClick,
   farcasterProfiles,
+  handleButtonClick,
 }: {
   game: Game;
   onJoinClick: (game: Game) => void;
   farcasterProfiles: Record<string, any>;
+  handleButtonClick: () => void;
 }) => {
   const { metadata } = useGameMetadata(game.metadataUri);
   const { address, isConnected } = useAccount();
@@ -526,7 +529,19 @@ const GameCard = ({
         </div>
         <span className="text-sm">Prize: {game.prize.toFixed(2)} USD</span>
       </div>
-      <p className="text-sm mb-1">Creator: {creatorDisplayName}</p>
+      <p className="text-sm mb-1">
+        Creator:{" "}
+        <button
+          type="button"
+          onClick={() => {
+            handleButtonClick();
+            navigate(`/profile/${game.creator}`);
+          }}
+          className="underline hover:text-[#ffd700]"
+        >
+          {creatorDisplayName}
+        </button>
+      </p>
       <p className="text-xs text-gray-400 mb-1">
         Players: {game.players.length}/{game.requiredParticipants} required
       </p>
@@ -549,13 +564,21 @@ const GameCard = ({
                 const username = profile?.username ?? player;
 
                 return (
-                  <img
+                  <button
                     key={pIndex}
-                    src={pfpUrl}
-                    alt={username}
-                    title={username}
-                    className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
-                  />
+                    type="button"
+                    onClick={() => {
+                      handleButtonClick();
+                      navigate(`/profile/${player}`);
+                    }}
+                  >
+                    <img
+                      src={pfpUrl}
+                      alt={username}
+                      title={username}
+                      className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                    />
+                  </button>
                 );
               })}
               {game.players.length > 4 && (

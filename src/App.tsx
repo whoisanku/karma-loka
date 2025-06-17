@@ -13,6 +13,7 @@ import HomePage from "./features/Home/HomePage";
 import SnakesAndLaddersPage from "./features/SnakesAndLadders/SnakesAndLaddersPage";
 import CreateGamePage from "./features/CreateGame/CreateGamePage";
 import LeaderboardPage from "./features/Leaderboard/LeaderboardPage";
+import PlayerProfilePage from "./features/Profile/PlayerProfilePage";
 import "./styles/global.css";
 import type { SDKUser } from "./types";
 
@@ -230,6 +231,10 @@ function AppContent() {
         path="/leaderboard"
         element={<LeaderboardPage handleButtonClick={handleButtonClick} />}
       />
+      <Route
+        path="/profile/:address"
+        element={<PlayerProfilePage handleButtonClick={handleButtonClick} />}
+      />
       <Route path="/game/:roomId" element={<SnakesAndLaddersPage />} />
     </Routes>
   );
@@ -255,7 +260,9 @@ function AppContent() {
               ? "Create"
               : location.pathname === "/leaderboard"
                 ? "Leaderboard"
-                : "Mystic Paths"
+                : location.pathname.startsWith("/profile")
+                  ? "Profile"
+                  : "Mystic Paths"
         }
       >
         {routeContent}

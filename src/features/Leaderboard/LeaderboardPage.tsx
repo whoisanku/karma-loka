@@ -72,7 +72,10 @@ export default function LeaderboardPage({
         <div
           key={row.rank}
           className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg px-2 py-2 text-white text-left shadow-md flex items-center justify-between hover:bg-[#8b4513]/20 transition-colors cursor-pointer"
-          onClick={handleButtonClick}
+          onClick={() => {
+            handleButtonClick();
+            navigate(`/profile/${row.address}`);
+          }}
         >
           <div className="flex items-center gap-3">
             <span className="font-bold text-2xl text-[#ffd700] w-8 text-center">
