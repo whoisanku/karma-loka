@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./variables.css";
 
 :root {
   background-color: #181818;
