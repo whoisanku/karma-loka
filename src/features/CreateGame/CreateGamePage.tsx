@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { PiUsersFill, PiUsersThreeFill, PiUsersFourFill } from "react-icons/pi";
+import { SiFarcaster } from "react-icons/si";
 import type { SDKUser } from "../../types";
 import { formatUnits, parseUnits } from "viem";
 import { useCreateGame } from "../../hooks/useCreateGame";
@@ -130,6 +131,14 @@ export default function CreateGamePage({
     handleButtonClick();
     resetTransactionState();
     navigate("/explore");
+  };
+
+  const handleShareOnFarcaster = () => {
+    const shareUrl = `${window.location.origin}/explore`;
+    const text = `Join my quest \"${gameName || defaultRoomName}\" on Karma Loka!`;
+    const farcasterUrl =
+      `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
+    window.open(farcasterUrl, "_blank");
   };
 
   const isLoading =
@@ -398,6 +407,15 @@ export default function CreateGamePage({
           >
             Cancel
           </button>
+          {currentStep === "completed" && (
+            <button
+              type="button"
+              onClick={handleShareOnFarcaster}
+              className="w-full px-6 py-2.5 text-sm font-normal text-white uppercase rounded-md bg-gradient-to-r from-[#8338ec] to-[#3a86ff] border-2 border-[#8b4513] hover:from-[#3a86ff] hover:to-[#8338ec] transition-colors duration-300 flex items-center justify-center gap-2"
+            >
+              <SiFarcaster className="w-5 h-5" /> Share on Farcaster
+            </button>
+          )}
         </div>
       </div>
     </div>

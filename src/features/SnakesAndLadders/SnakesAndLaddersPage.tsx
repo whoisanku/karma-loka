@@ -213,6 +213,27 @@ const SnakesAndLaddersPage: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const frame = {
+      version: "next",
+      imageUrl: `${window.location.origin}/wooden_frame.png`,
+      button: {
+        title: "Join Game",
+        action: {
+          type: "launch_frame",
+          url: `${window.location.origin}/game/${roomId ?? ""}`,
+        },
+      },
+    };
+    const meta = document.createElement("meta");
+    meta.name = "fc:frame";
+    meta.content = JSON.stringify(frame);
+    document.head.appendChild(meta);
+    return () => {
+      document.head.removeChild(meta);
+    };
+  }, [roomId]);
+
   const { data: contractPlayers } = useReadContract({
     address: snakeGameContractInfo.address as `0x${string}`,
     abi: snakeGameContractInfo.abi,
