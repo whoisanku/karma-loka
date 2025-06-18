@@ -273,11 +273,11 @@ const SnakesAndLaddersPage: React.FC = () => {
     return {
       id: addr ?? `slot-${i}`,
       name: addr
-        ? profiles[addr]?.username ?? truncateAddress(addr)
+        ? (profiles[addr]?.username ?? truncateAddress(addr))
         : "Waiting",
       avatarUrl: addr
-        ? profiles[addr]?.pfp?.url ??
-          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
+        ? (profiles[addr]?.pfp?.url ??
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`)
         : `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
       position: info ? info[1] : 1,
       lastPosition: info ? info[0] : undefined,
@@ -886,7 +886,7 @@ const SnakesAndLaddersPage: React.FC = () => {
               />
             );
           })()}
-          <div className="absolute left-1/2 transform -translate-x-1/2 w-full px-20 text-center">
+          <div className="absolute left-1/2 transform -translate-x-1/2 w-full px-20 text-center pointer-events-none">
             {!winner && (
               <>
                 {currentPlayer ? (

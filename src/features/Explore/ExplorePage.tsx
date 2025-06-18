@@ -28,7 +28,7 @@ interface ExplorePageProps {
 
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const [activeTab, setActiveTab] = useState("all");
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -103,12 +103,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     handleButtonClick();
     setSelectedGame(game);
     setIsConfirmJoinModalOpen(true);
-  };
-
-  const handleRollClick = (game: Game) => {
-    handleButtonClick();
-    const id = game.id.split("#")[1];
-    navigate(`/game/${id}`);
   };
 
   // Trigger participation flow
@@ -221,6 +215,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               game={game}
               onJoinClick={handleJoinQuestClick}
               farcasterProfiles={farcasterProfiles}
+              handleButtonClick={handleButtonClick}
             />
           ))}
         </div>
@@ -388,17 +383,48 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 }
 
 // Add GameCard component to keep the main component clean
-const GameCard = ({ game, onJoinClick, farcasterProfiles }: { 
-  game: Game; 
+const GameCard = ({
+  game,
+  onJoinClick,
+  farcasterProfiles,
+  handleButtonClick,
+}: {
+  game: Game;
   onJoinClick: (game: Game) => void;
   farcasterProfiles: Record<string, any>;
+  handleButtonClick: () => void;
 }) => {
   const { metadata } = useGameMetadata(game.metadataUri);
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
-  
+
+  const creatorDisplayName = useMemo(() => {
+    const name = farcasterProfiles[game.creator]?.username ?? game.creator;
+    if (name.startsWith("0x") && name.length > 12) {
+      return `${name.substring(0, 6)}...${name.substring(name.length - 4)}`;
+    }
+    if (name.length > 15) {
+      return name.substring(0, 15) + "...";
+    }
+    return name;
+  }, [game.creator, farcasterProfiles]);
+
   // Component to render game button with hasJoined check
   const GameButton = () => {
+    if (
+      game.winner &&
+      game.winner !== "0x0000000000000000000000000000000000000000"
+    ) {
+      const winnerName =
+        farcasterProfiles[game.winner]?.username ?? game.winner;
+      return (
+        <div className="text-right">
+          <p className="text-lg font-bold text-[#ffd700]">Winner!</p>
+          <p className="text-sm">{winnerName}</p>
+        </div>
+      );
+    }
+
     const { data: joined } = useReadContract({
       address: snakeGameContractInfo.address as `0x${string}`,
       abi: snakeGameContractInfo.abi,
@@ -492,33 +518,39 @@ const GameCard = ({ game, onJoinClick, farcasterProfiles }: {
       </button>
     );
   };
-  
+
   return (
     <div className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg p-4 text-white text-left shadow-md">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[#ffd700] font-normal">{game.id}</span>
           {metadata?.name && (
-            <span className="text-gray-400 text-sm">
-              - {metadata.name}
-            </span>
+            <span className="text-[#ffd700] font-normal">{metadata.name}</span>
           )}
         </div>
-        <span className="text-sm">
-          Prize: {game.prize.toFixed(2)} USD
-        </span>
+        <span className="text-sm">Prize: {game.prize.toFixed(2)} USD</span>
       </div>
       <p className="text-sm mb-1">
         Creator:{" "}
-        {farcasterProfiles[game.creator]?.username ?? game.creator}
+        <button
+          type="button"
+          onClick={() => {
+            handleButtonClick();
+            navigate(`/profile/${game.creator}`);
+          }}
+          className="underline hover:text-[#ffd700]"
+        >
+          {creatorDisplayName}
+        </button>
       </p>
       <p className="text-xs text-gray-400 mb-1">
-        Players: {game.players.length}/{game.requiredParticipants}{" "}
-        required
+        Players: {game.players.length}/{game.requiredParticipants} required
       </p>
-      {game.started && (
+      {game.winner &&
+      game.winner !== "0x0000000000000000000000000000000000000000" ? (
+        <p className="text-xs text-yellow-400 mb-1">Game Over</p>
+      ) : game.started ? (
         <p className="text-xs text-green-400 mb-1">Game Started</p>
-      )}
+      ) : null}
 
       <div className="flex justify-between items-center mt-3 mb-1">
         <div className="flex items-center">
@@ -532,13 +564,21 @@ const GameCard = ({ game, onJoinClick, farcasterProfiles }: {
                 const username = profile?.username ?? player;
 
                 return (
-                  <img
+                  <button
                     key={pIndex}
-                    src={pfpUrl}
-                    alt={username}
-                    title={username}
-                    className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
-                  />
+                    type="button"
+                    onClick={() => {
+                      handleButtonClick();
+                      navigate(`/profile/${player}`);
+                    }}
+                  >
+                    <img
+                      src={pfpUrl}
+                      alt={username}
+                      title={username}
+                      className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                    />
+                  </button>
                 );
               })}
               {game.players.length > 4 && (
@@ -554,9 +594,7 @@ const GameCard = ({ game, onJoinClick, farcasterProfiles }: {
               )}
             </div>
           ) : (
-            <span className="text-sm text-gray-400">
-              No players yet
-            </span>
+            <span className="text-sm text-gray-400">No players yet</span>
           )}
         </div>
         <GameButton />

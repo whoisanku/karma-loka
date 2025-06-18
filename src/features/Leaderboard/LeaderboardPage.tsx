@@ -1,18 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import useLeaderboard from "../../hooks/useLeaderboard";
+import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface LeaderboardPageProps {
   handleButtonClick: () => void;
 }
 
-const dummyData = [
-  { rank: 1, name: "whoisanku", wins: 15 },
-  { rank: 2, name: "aryog", wins: 12 },
-  { rank: 3, name: "jsonpreet", wins: 10 },
-  { rank: 4, name: "dwr", wins: 8 },
-  { rank: 6, name: "jessyfries", wins: 6 },
-  { rank: 7, name: "srijan", wins: 5 },
-];
+const truncateAddress = (address: string) => {
+  if (address.length > 10 && address.startsWith("0x")) {
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  }
+  return address;
+};
 
 export default function LeaderboardPage({
   handleButtonClick,
@@ -20,8 +20,24 @@ export default function LeaderboardPage({
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredData = dummyData.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const { entries } = useLeaderboard(10);
+  const { profiles } = useFarcasterProfiles(entries.map((e) => e.address));
+
+  const rows = entries.map((e, idx) => ({
+    rank: idx + 1,
+    address: e.address,
+    wins: e.wins,
+    name:
+      profiles[e.address]?.username ??
+      profiles[e.address]?.displayName ??
+      truncateAddress(e.address),
+    avatar:
+      profiles[e.address]?.pfp?.url ??
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${e.address}`,
+  }));
+
+  const filteredData = rows.filter((row) =>
+    row.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -56,14 +72,17 @@ export default function LeaderboardPage({
         <div
           key={row.rank}
           className="bg-[#1a0f09] border-2 border-[#8b4513] rounded-lg px-2 py-2 text-white text-left shadow-md flex items-center justify-between hover:bg-[#8b4513]/20 transition-colors cursor-pointer"
-          onClick={handleButtonClick}
+          onClick={() => {
+            handleButtonClick();
+            navigate(`/profile/${row.address}`);
+          }}
         >
           <div className="flex items-center gap-3">
             <span className="font-bold text-2xl text-[#ffd700] w-8 text-center">
               {row.rank}
             </span>
             <img
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${row.name}`}
+              src={row.avatar}
               alt={row.name}
               className="w-10 h-10 rounded-full border-2 border-[#8b4513]"
             />
