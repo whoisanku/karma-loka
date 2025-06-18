@@ -1,30 +1,38 @@
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+
 interface AudioControlProps {
   isMuted: boolean;
   onToggle: () => void;
   className?: string;
 }
 
-export default function AudioControl({
-  isMuted,
-  onToggle,
-  className = "",
-}: AudioControlProps) {
+export default function AudioControl({ isMuted, onToggle, className = "" }: AudioControlProps) {
   return (
     <button
+      type="button"
       onClick={onToggle}
-      className={`w-10 h-10 rounded-full border-2 border-[#ffd700] 
-                 bg-[rgba(44,24,16,0.8)] z-10 flex items-center justify-center
-                 hover:scale-105 transition-transform duration-200 hover:border-[#ff8c00] ${className}`}
+      className={twMerge(
+        clsx(
+          "w-10 h-10 rounded-full border-2 border-[var(--color-gold)]",
+          "bg-[var(--color-overlay-brown)] z-10 flex items-center justify-center",
+          "hover:scale-105 transition-transform duration-200",
+          "hover:border-[var(--color-dark-orange)]",
+          className,
+        ),
+      )}
     >
       {isMuted ? (
+        // Muted speaker icon
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="w-6 h-6 text-[#ffd700]"
+          className="w-6 h-6 text-[var(--color-gold)]"
         >
+          <title>Muted</title>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -32,14 +40,17 @@ export default function AudioControl({
           />
         </svg>
       ) : (
+        // Unmuted speaker icon
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="w-6 h-6 text-[#ffd700]"
+          className="w-6 h-6 text-[var(--color-gold)]"
         >
+          <title>Unmuted</title>
+
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
