@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "biome check src",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js"
   },
   "dependencies": {
     "@farcaster/frame-sdk": "latest",
@@ -34,7 +35,8 @@
     "tailwindcss": "^4.1.8",
     "three": "^0.177.0",
     "viem": "latest",
-    "wagmi": "latest"
+    "wagmi": "latest",
+    "express": "^4.19.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.0",

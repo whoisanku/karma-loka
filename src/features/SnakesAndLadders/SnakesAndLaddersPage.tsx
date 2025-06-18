@@ -214,6 +214,7 @@ const SnakesAndLaddersPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (document.querySelector('meta[name="fc:frame"]')) return;
     const frame = {
       version: "next",
       imageUrl: `${window.location.origin}/wooden_frame.png`,
@@ -230,7 +231,9 @@ const SnakesAndLaddersPage: React.FC = () => {
     meta.content = JSON.stringify(frame);
     document.head.appendChild(meta);
     return () => {
-      document.head.removeChild(meta);
+      if (meta.parentNode) {
+        meta.parentNode.removeChild(meta);
+      }
     };
   }, [roomId]);
 

@@ -8,6 +8,7 @@ import { useCreateGame } from "../../hooks/useCreateGame";
 import { useStorage } from "../../hooks/useStorage";
 import { useAccount } from "wagmi";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
+import GameCreatedModal from "./GameCreatedModal";
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -40,6 +41,7 @@ export default function CreateGamePage({
   const [gameName, setGameName] = useState("");
   const [prizeAmount, setPrizeAmount] = useState<string>("");
   const [selectedPlayers, setSelectedPlayers] = useState<number>(4);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const { uploadGameMetadata } = useStorage();
 
@@ -48,6 +50,7 @@ export default function CreateGamePage({
     errorMessage,
     approvalTxHash,
     createRoomTxHash,
+    createdRoomId,
     needsApproval,
     usdcBalance,
     isConnected,
@@ -58,15 +61,12 @@ export default function CreateGamePage({
     resetTransactionState,
   } = useCreateGame(prizeAmount, selectedPlayers);
 
-  // Effect to handle completion
+  // Show success modal when quest creation completes
   useEffect(() => {
     if (currentStep === "completed") {
-      // Navigate after showing success message
-      setTimeout(() => {
-        navigate("/explore");
-      }, 3000);
+      setShowSuccess(true);
     }
-  }, [currentStep, navigate]);
+  }, [currentStep]);
 
   const handleSubmit = useCallback(async () => {
     // First, ensure wallet is connected
@@ -134,11 +134,14 @@ export default function CreateGamePage({
   };
 
   const handleShareOnFarcaster = () => {
-    const shareUrl = `${window.location.origin}/explore`;
+    const shareUrl = createdRoomId
+      ? `${window.location.origin}/game/${createdRoomId}`
+      : `${window.location.origin}/explore`;
     const text = `Join my quest \"${gameName || defaultRoomName}\" on Karma Loka!`;
     const farcasterUrl =
       `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(shareUrl)}`;
     window.open(farcasterUrl, "_blank");
+    setShowSuccess(false);
   };
 
   const isLoading =
@@ -255,7 +258,7 @@ export default function CreateGamePage({
       case "completed":
         return (
           <p className="text-green-500">
-            ✅ Quest created successfully! Redirecting...
+            ✅ Quest created successfully!
             {createRoomTxHash && (
               <a
                 href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`}
@@ -407,17 +410,21 @@ export default function CreateGamePage({
           >
             Cancel
           </button>
-          {currentStep === "completed" && (
-            <button
-              type="button"
-              onClick={handleShareOnFarcaster}
-              className="w-full px-6 py-2.5 text-sm font-normal text-white uppercase rounded-md bg-gradient-to-r from-[#8338ec] to-[#3a86ff] border-2 border-[#8b4513] hover:from-[#3a86ff] hover:to-[#8338ec] transition-colors duration-300 flex items-center justify-center gap-2"
-            >
-              <SiFarcaster className="w-5 h-5" /> Share on Farcaster
-            </button>
-          )}
         </div>
       </div>
+      <GameCreatedModal
+        isOpen={showSuccess}
+        onClose={() => {
+          setShowSuccess(false);
+        }}
+        onShare={() => {
+          handleShareOnFarcaster();
+        }}
+        onExplore={() => {
+          setShowSuccess(false);
+          navigate("/explore");
+        }}
+      />
     </div>
   );
 }
