@@ -743,7 +743,7 @@ const SnakesAndLaddersPage: React.FC = () => {
 
             {/* Player Tokens Layer */}
             <div className="absolute inset-0 z-10 pointer-events-none">
-              {enhancedPlayers.map((player, index) => {
+              {enhancedPlayers.map((player) => {
                 if (player.id.startsWith("slot-")) return null;
 
                 const animState = animatedPositions[player.id];
@@ -754,17 +754,38 @@ const SnakesAndLaddersPage: React.FC = () => {
                 const cellPos = getPositionForCell(visualPosition);
                 if (!cellPos) return null;
 
-                const multiplePlayersInCell = players.filter(
-                  (p) =>
-                    (animatedPositions[p.id]?.visualPosition || p.position) ===
-                    visualPosition
-                );
+                const playersInSameCell = enhancedPlayers.filter((p) => {
+                  if (p.id.startsWith("slot-")) return false;
+                  const pAnimState = animatedPositions[p.id];
+                  const pVisualPosition = pAnimState
+                    ? pAnimState.visualPosition
+                    : p.position;
+                  return pVisualPosition === visualPosition;
+                });
 
-                let offsetIndex = -1;
-                if (multiplePlayersInCell.length > 1) {
-                  offsetIndex = multiplePlayersInCell.findIndex(
+                let transform = "translate(-90%, -100%)";
+                let zIndex = 10;
+
+                if (playersInSameCell.length > 1 && boardRect) {
+                  const offsetIndex = playersInSameCell.findIndex(
                     (p) => p.id === player.id
                   );
+
+                  if (offsetIndex !== -1) {
+                    const cellWidth = boardRect.width / 10;
+                    const numPlayersInCell = playersInSameCell.length;
+
+                    // Arrange tokens in a circle to avoid overlap
+                    const radius = cellWidth * 0.23; // Keep tokens within the cell
+                    const angle =
+                      (2 * Math.PI * offsetIndex) / numPlayersInCell 
+
+                    const xOffset = radius * Math.cos(angle);
+                    const yOffset = 0;
+
+                    transform = `translate(calc(-50% + ${xOffset}px), calc(-50% + ${yOffset}px))`;
+                    zIndex = 10 + offsetIndex;
+                  }
                 }
 
                 return (
@@ -778,13 +799,10 @@ const SnakesAndLaddersPage: React.FC = () => {
                       position: "absolute",
                       top: `${cellPos.top}px`,
                       left: `${cellPos.left}px`,
-                      transform: `translate(-50%, -50%)`,
+                      transform: transform,
                       transition:
-                        "top 0.35s ease-in-out, left 0.35s ease-in-out",
-                      zIndex:
-                        multiplePlayersInCell.length > 1
-                          ? 10 + offsetIndex
-                          : 10,
+                        "top 0.35s ease-in-out, left 0.35s ease-in-out, transform 0.35s ease-in-out",
+                      zIndex: zIndex,
                     }}
                   />
                 );
