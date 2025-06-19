@@ -4,6 +4,13 @@ import { ethers } from 'ethers';
 import path from 'path';
 import fs from 'fs';
 import nodeHtmlToImage from 'node-html-to-image';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Get base URL from environment variables
+const BASE_URL = process.env.DEPLOYED_ADDRESS_BASE_URL;
 
 // --- Contract Setup ---
 const contractInfo = JSON.parse(
@@ -192,8 +199,7 @@ async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: 
         // Handle initial frame request for a specific game
         if (match) {
             const gameId = match[1];
-            const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
-            const imageUrl = `${baseUrl}/game/${gameId}/image`;
+            const imageUrl = `${BASE_URL}/game/${gameId}/image`;
             
             // Correct, spec-compliant metadata for a rich, vertical frame.
             const frameHtml = `<!DOCTYPE html>
@@ -218,10 +224,10 @@ async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: 
             {
                 label: "🎲 Join Quest",
                 action: "post",
-                target: `${baseUrl}/game/${gameId}/join`
+                target: `${BASE_URL}/game/${gameId}/join`
             }
         ],
-        postUrl: `${baseUrl}/game/${gameId}/action`,
+        postUrl: `${BASE_URL}/game/${gameId}/action`,
         input: {
             text: "Enter your move (1-6)"
         }

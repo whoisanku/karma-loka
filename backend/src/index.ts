@@ -4,9 +4,15 @@ import path from 'path';
 import fs from 'fs';
 import nodeHtmlToImage from 'node-html-to-image';
 import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASE_URL = process.env.DEPLOYED_ADDRESS_BASE_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // Enable CORS for development
 app.use(cors({
@@ -189,8 +195,7 @@ app.get('/game/:gameId', async (req, res) => {
     const isFarcaster = userAgent.toLowerCase().includes('farcaster');
     console.log('Is Farcaster request:', isFarcaster);
     
-    const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';  // Removed trailing slash
-    const imageUrl = `${baseUrl}/game/${gameId}/image`;
+    const imageUrl = `${BASE_URL}/game/${gameId}/image`;
     
     try {
         // Generate frame HTML with the new format
@@ -207,7 +212,7 @@ app.get('/game/:gameId', async (req, res) => {
                 <meta property="og:image" content="${imageUrl}" />
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
                 
                 <!-- Cache Control -->
                 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -367,8 +372,7 @@ app.post('/game/:gameId/join', async (req, res) => {
     console.log('Join request received for game:', gameId);
     
     try {
-        const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
-        const imageUrl = `${baseUrl}/game/${gameId}/image`;
+        const imageUrl = `${BASE_URL}/game/${gameId}/image`;
         
         // Return a new frame response
         const frameHtml = `
@@ -379,7 +383,7 @@ app.post('/game/:gameId/join', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
@@ -402,8 +406,7 @@ app.post('/game/:gameId/action', async (req, res) => {
     console.log('Action request received for game:', gameId);
     
     try {
-        const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
-        const imageUrl = `${baseUrl}/game/${gameId}/image`;
+        const imageUrl = `${BASE_URL}/game/${gameId}/image`;
         
         // Return updated frame response
         const frameHtml = `
@@ -414,7 +417,7 @@ app.post('/game/:gameId/action', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll Again","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll Again","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
@@ -433,4 +436,5 @@ app.post('/game/:gameId/action', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
+    console.log(`🌍 Using base URL: ${BASE_URL}`);
 }); 
