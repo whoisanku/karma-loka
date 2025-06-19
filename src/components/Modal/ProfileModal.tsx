@@ -2,7 +2,7 @@ import type { SDKUser } from "../../types";
 import { useAccount } from "wagmi";
 import { useState } from "react";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
-import usePlayerStats from "../../hooks/usePlayerStats";
+import useUserStats from "../../hooks/useUserStats";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export default function ProfileModal({
     address ? [address] : []
   );
   const walletProfile = address ? fcProfiles[address] : null;
-  const { gamesPlayed, wins, loading } = usePlayerStats(address ?? "");
+  const { gamesPlayed, wins, loading } = useUserStats(address ?? "");
   const [isCopied, setIsCopied] = useState(false);
 
   if (!isOpen) return null;

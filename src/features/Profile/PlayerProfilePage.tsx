@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import usePlayerStats from "../../hooks/usePlayerStats";
+import useUserStats from "../../hooks/useUserStats";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 
 interface PlayerProfilePageProps {
@@ -13,7 +13,7 @@ export default function PlayerProfilePage({
   const navigate = useNavigate();
   const { profiles } = useFarcasterProfiles([address]);
   const profile = profiles[address];
-  const { gamesPlayed, wins, loading } = usePlayerStats(address);
+  const { gamesPlayed, wins, loading } = useUserStats(address);
 
   const avatarUrl =
     profile?.pfp?.url ||

@@ -7,6 +7,7 @@ import { useParticipate } from "../../hooks/useParticipate";
 import { useGameMetadata } from "../../hooks/useGameMetadata";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
+import useUserRooms from "../../hooks/useUserRooms";
 
 interface Game {
   id: string;
@@ -29,6 +30,7 @@ interface ExplorePageProps {
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address } = useAccount();
+  const { roomIds: joinedRoomIds } = useUserRooms(address ?? "");
   const [activeTab, setActiveTab] = useState("all");
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -160,12 +162,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   // Filter games based on activeTab and user participation
   const filteredGames = useMemo(() => {
     if (activeTab === "joined") {
-      return games.filter((game) =>
-        address ? game.players.includes(address) : false
-      );
+      return games.filter((game) => {
+        const idNum = Number(game.id.split("#")[1]);
+        return joinedRoomIds.includes(idNum);
+      });
     }
     return games;
-  }, [activeTab, games, address]);
+  }, [activeTab, games, joinedRoomIds]);
 
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
