@@ -37,26 +37,39 @@ const truncateAddress = (addr: string): string => {
   return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
 };
 
+const FARCASTER_API_URL =
+  'https://build.wield.xyz/farcaster/v2/user-by-connected-address';
+const FARCASTER_API_KEY = 'L60RP-AMTZV-O48J1-1N4H8-UVRDQ';
+
+async function fetchFarcasterProfile(address: string) {
+  try {
+    const res = await fetch(`${FARCASTER_API_URL}?address=${address}`, {
+      headers: { 'API-KEY': FARCASTER_API_KEY },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const user = data.result?.user;
+    if (!user) return null;
+    return { username: user.username as string, pfp: user.pfp?.url as string };
+  } catch (err) {
+    console.error('[Backend] Failed to fetch Farcaster profile', err);
+    return null;
+  }
+}
+
 // --- Image Generation ---
 async function generateGameImage(gameId: string): Promise<Buffer> {
     console.log('Starting image generation...');
     try {
         const fontPath = path.resolve(__dirname, '../../public/KGRedHands.ttf');
-        const imagePath = path.resolve(__dirname, '../../public/wooden_frame.png');
 
         console.log('Font path:', fontPath);
-        console.log('Image path:', imagePath);
 
         if (!fs.existsSync(fontPath)) {
             throw new Error(`Font file not found at: ${fontPath}`);
         }
-        if (!fs.existsSync(imagePath)) {
-            throw new Error(`Background image not found at: ${imagePath}`);
-        }
 
         const fontBase64 = fs.readFileSync(fontPath).toString('base64');
-        const imageBase64 = fs.readFileSync(imagePath).toString('base64');
-        const imageUrl = `data:image/png;base64,${imageBase64}`;
 
         console.log('Fetching contract data...');
         const roomInfo = await gameContract.getRoomInfo(gameId);
@@ -67,14 +80,26 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
 
         console.log('Room data:', { playersInRoom, maxPlayers, prizePool });
 
-        const playerNames: string[] = playersInRoom.map(truncateAddress);
+        const playerInfos = await Promise.all(
+            playersInRoom.map(async (addr) => {
+                const profile = await fetchFarcasterProfile(addr);
+                return {
+                    displayName: profile?.username ?? truncateAddress(addr),
+                    avatar: profile?.pfp ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
+                };
+            })
+        );
+
         for (let i = playersInRoom.length; i < maxPlayers; i++) {
-            playerNames.push('Waiting...');
+            playerInfos.push({
+                displayName: 'Waiting...',
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`
+            });
         }
 
-        const playerHtml = playerNames
+        const playerHtml = playerInfos
             .map(
-                (name: string, index: number) =>
+                (p) =>
                     `<div style="
                         display: flex;
                         align-items: center;
@@ -84,10 +109,10 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                         margin-bottom: 8px;
                         border: 1px solid #ffd700;
                     ">
-                        <img 
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${name}" 
-                            width="40" 
-                            height="40" 
+                        <img
+                            src="${p.avatar}"
+                            width="40"
+                            height="40"
                             style="
                                 border-radius: 50%;
                                 margin-right: 12px;
@@ -100,7 +125,7 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                             font-weight: bold;
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
-                        ">${name}</span>
+                        ">${p.displayName}</span>
                     </div>`
             )
             .join('');
@@ -123,8 +148,7 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                     display: flex; 
                     flex-direction: column; 
                     align-items: center; 
-                    background-image: url('${imageUrl}');
-                    background-size: cover;
+                    background: linear-gradient(135deg, #111, #222);
                     padding: 20px;
                     box-sizing: border-box;
                 ">
@@ -212,7 +236,20 @@ app.get('/game/:gameId', async (req, res) => {
                 <meta property="og:image" content="${imageUrl}" />
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/explore?join=${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='${JSON.stringify({
+                    version: "next",
+                    image: { url: imageUrl, aspectRatio: "1.91:1" },
+                    button: {
+                        title: "🎲 Join My Quest",
+                        action: {
+                            type: "launch_frame",
+                            name: "Karma Loka",
+                            url: `${FRONTEND_URL}/explore?join=${gameId}`,
+                            splashImageUrl: imageUrl,
+                            splashBackgroundColor: "#954520"
+                        }
+                    }
+                })}' />
                 
                 <!-- Cache Control -->
                 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -383,7 +420,20 @@ app.post('/game/:gameId/join', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='${JSON.stringify({
+                    version: "next",
+                    image: { url: imageUrl, aspectRatio: "1.91:1" },
+                    button: {
+                        title: "🎲 Roll",
+                        action: {
+                            type: "launch_frame",
+                            name: "Karma Loka",
+                            url: `${FRONTEND_URL}/game/${gameId}`,
+                            splashImageUrl: imageUrl,
+                            splashBackgroundColor: "#954520"
+                        }
+                    }
+                })}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
@@ -417,7 +467,20 @@ app.post('/game/:gameId/action', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll Again","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='${JSON.stringify({
+                    version: "next",
+                    image: { url: imageUrl, aspectRatio: "1.91:1" },
+                    button: {
+                        title: "🎲 Roll Again",
+                        action: {
+                            type: "launch_frame",
+                            name: "Karma Loka",
+                            url: `${FRONTEND_URL}/game/${gameId}`,
+                            splashImageUrl: imageUrl,
+                            splashBackgroundColor: "#954520"
+                        }
+                    }
+                })}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />

@@ -51,36 +51,62 @@ const normalizeUrl = (base: string, path: string): string => {
     return `${cleanBase}/${cleanPath}`;
 };
 
+const FARCASTER_API_URL =
+    'https://build.wield.xyz/farcaster/v2/user-by-connected-address';
+const FARCASTER_API_KEY = 'L60RP-AMTZV-O48J1-1N4H8-UVRDQ';
+
+async function fetchFarcasterProfile(address: string) {
+    try {
+        const res = await fetch(`${FARCASTER_API_URL}?address=${address}`, {
+            headers: { 'API-KEY': FARCASTER_API_KEY }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const user = data.result?.user;
+        if (!user) return null;
+        return { username: user.username as string, pfp: user.pfp?.url as string };
+    } catch (err) {
+        console.error('[Frame Plugin] Failed to fetch Farcaster profile', err);
+        return null;
+    }
+}
+
 // --- Image Generation ---
 async function generateGameImage(gameId: string): Promise<Buffer> {
     try {
         const fontPath = path.resolve(__dirname, '../public/KGRedHands.ttf');
-        const imagePath = path.resolve(__dirname, '../public/wooden_frame.png');
 
         if (!fs.existsSync(fontPath)) {
             throw new Error(`Font file not found at: ${fontPath}`);
         }
-        if (!fs.existsSync(imagePath)) {
-            throw new Error(`Background image not found at: ${imagePath}`);
-        }
 
         const fontBase64 = fs.readFileSync(fontPath).toString('base64');
-        const imageBase64 = fs.readFileSync(imagePath).toString('base64');
-        const imageUrl = `data:image/png;base64,${imageBase64}`;
 
         const room = await gameContract.getRoom(gameId);
-        const playersInRoom = room.players;
+        const playersInRoom = room.players as string[];
         const maxPlayers = Number(room.maxPlayers);
         const prizePool = ethers.formatUnits(room.prizePool, 6);
 
-        const playerNames: string[] = playersInRoom.map(truncateAddress);
+        const playerInfos = await Promise.all(
+            playersInRoom.map(async (addr) => {
+                const profile = await fetchFarcasterProfile(addr);
+                return {
+                    displayName: profile?.username ?? truncateAddress(addr),
+                    avatar: profile?.pfp ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
+                };
+            })
+        );
+
         for (let i = playersInRoom.length; i < maxPlayers; i++) {
-            playerNames.push('Waiting...');
+            playerInfos.push({
+                displayName: 'Waiting...',
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`
+            });
         }
 
-        const playerHtml = playerNames
+        const playerHtml = playerInfos
             .map(
-                (name: string, index: number) =>
+                (p) =>
                     `<div style="
                         display: flex;
                         align-items: center;
@@ -91,10 +117,10 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                         border: 2px solid #ffd700;
                         width: 100%;
                     ">
-                        <img 
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${playersInRoom[index] || `slot${index}`}" 
-                            width="32" 
-                            height="32" 
+                        <img
+                            src="${p.avatar}"
+                            width="32"
+                            height="32"
                             style="
                                 border-radius: 50%;
                                 margin-right: 12px;
@@ -107,7 +133,7 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
                             font-family: 'KGRedHands', monospace;
-                        ">${name}</span>
+                        ">${p.displayName}</span>
                     </div>`
             )
             .join('');
@@ -124,17 +150,16 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                             margin: 0;
                             padding: 0;
                             width: 600px;
-                            height: 600px;
+                            height: 315px;
                             display: flex;
                             justify-content: center;
                             align-items: center;
-                            background: transparent;
+                            background: linear-gradient(135deg, #111, #222);
                         }
                         .container {
                             width: 90%;
                             max-width: 500px;
-                            background-image: url('${imageUrl}');
-                            background-size: cover;
+                            background: rgba(17, 17, 17, 0.85);
                             border-radius: 15px;
                             padding: 20px;
                             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
@@ -176,7 +201,7 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                 args: ['--no-sandbox'],
                 defaultViewport: {
                     width: 600,
-                    height: 600
+                    height: 315
                 }
             },
             encoding: 'binary'
@@ -218,7 +243,7 @@ async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: 
         version: "next",
         image: {
             url: imageUrl,
-            aspectRatio: "1:1"
+            aspectRatio: "1.91:1"
         },
         buttons: [
             {
