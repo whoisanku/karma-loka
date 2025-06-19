@@ -30,6 +30,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address } = useAccount();
   const [activeTab, setActiveTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const {
@@ -137,15 +138,27 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     }
   }, [participateStep, navigate, selectedGame]);
 
-  // Filter games based on activeTab and user participation
+  // Filter games based on activeTab, user participation and search term
   const filteredGames = useMemo(() => {
+    let result = games;
     if (activeTab === "joined") {
-      return games.filter((game) =>
+      result = result.filter((game) =>
         address ? game.players.includes(address) : false
       );
     }
-    return games;
-  }, [activeTab, games, address]);
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((game) => {
+        const profile = farcasterProfiles[game.creator];
+        const creatorName =
+          profile?.username || profile?.displayName || game.creator;
+        return creatorName.toLowerCase().includes(term);
+      });
+    }
+
+    return result;
+  }, [activeTab, games, address, searchTerm, farcasterProfiles]);
 
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
@@ -190,6 +203,34 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         >
           Joined Rounds
         </button>
+      </div>
+
+      {/* Search by creator */}
+      <div className="relative mx-4">
+        <input
+          type="text"
+          placeholder="Search by creator..."
+          className="w-full bg-[#1a0f09] border-2 border-[#8b4513] focus:border-[#ffd700] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-[#ffd700] transition-colors"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+          <svg
+            className="h-5 w-5 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </div>
       </div>
 
       {/* Show error message if there are some games but also errors */}
