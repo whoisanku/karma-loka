@@ -4,7 +4,7 @@ import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
 import ProfileModal from "../Modal/ProfileModal";
 import SettingsModal from "../Modal/SettingsModal";
 import type { SDKUser } from "../../types";
-import { Menu } from "lucide-react";
+import { GrMenu } from "react-icons/gr";
 
 interface WoodenFrameLayoutProps {
   children: ReactNode;
@@ -53,7 +53,7 @@ export default function WoodenFrameLayout({
           <div className="flex-shrink-0 z-20">
             <div className="flex mb-1 justify-between items-center max-w-7xl mx-auto">
               {/* Left cluster: Settings + Leaderboard */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 group">
                 {/* Settings Button */}
                 <button
                   onClick={() => {
@@ -62,10 +62,11 @@ export default function WoodenFrameLayout({
                   }}
                   className="w-10 h-10 rounded-full border-2 border-[#ffd700] 
                            overflow-hidden bg-[rgba(44,24,16,0.8)] p-1.5
-                           hover:border-[#ff8c00] transition-colors duration-200 flex items-center justify-center"
+                           transition-colors duration-200 flex items-center justify-center
+                           group-hover:border-[#ff8c00] group-hover:bg-[rgba(44,24,16,0.9)]"
                 >
-                  <Menu
-                    className="w-full h-full text-[#ffd700]"
+                  <GrMenu
+                    className="w-full h-full text-[#ffd700] group-hover:text-[#ff8c00]"
                     strokeWidth={1.5}
                   />
                 </button>
