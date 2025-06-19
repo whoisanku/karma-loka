@@ -174,8 +174,8 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   }
 
   return (
-    <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
-      <div className="flex justify-center mb-4">
+    <div className="mx-auto max-w-xl text-center space-y-6 pb-20">
+      <div className="flex pt-2 pb-2 justify-center mb-4 sticky top-0 z-30 bg-[#2c1810]">
         <button
           type="button"
           onClick={() => setActiveTab("all")}
