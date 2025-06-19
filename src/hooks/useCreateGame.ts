@@ -5,7 +5,7 @@ import {
   useConnect,
   useReadContract,
 } from "wagmi";
-import { parseUnits, parseAbi, formatUnits } from "viem";
+import { parseUnits, parseAbi, formatUnits, decodeEventLog } from "viem";
 import { baseSepolia } from "wagmi/chains";
 import { useCallback, useEffect, useState } from "react";
 import snakeGameContractInfo from "../constants/snakeGameContractInfo.json";
@@ -33,6 +33,7 @@ interface UseCreateGameReturn {
   errorMessage: string;
   approvalTxHash: `0x${string}` | null;
   createRoomTxHash: `0x${string}` | null;
+  createdRoomId: number | null;
   needsApproval: boolean;
   usdcBalance: bigint | undefined;
   isConnected: boolean;
@@ -41,6 +42,7 @@ interface UseCreateGameReturn {
   handleCreateRoom: (metadataUri: string) => Promise<void>;
   connectWallet: () => Promise<void>;
   resetTransactionState: () => void;
+  createdGameId: number | null;
 }
 
 export function useCreateGame(
@@ -55,6 +57,7 @@ export function useCreateGame(
   const [createRoomTxHash, setCreateRoomTxHash] = useState<
     `0x${string}` | null
   >(null);
+  const [createdRoomId, setCreatedRoomId] = useState<number | null>(null);
   const [pendingMetadataUri, setPendingMetadataUri] = useState<string | null>(
     null
   );
@@ -121,8 +124,11 @@ export function useCreateGame(
     });
 
   // Wait for create room transaction
-  const { isSuccess: isCreateSuccess, error: createReceiptError } =
-    useWaitForTransactionReceipt({
+  const {
+    isSuccess: isCreateSuccess,
+    data: createReceipt,
+    error: createReceiptError,
+  } = useWaitForTransactionReceipt({
       hash: createHash,
       confirmations: 1,
       query: {
@@ -165,12 +171,35 @@ export function useCreateGame(
 
   // Handle create room success
   useEffect(() => {
-    if (isCreateSuccess && createHash) {
+    if (isCreateSuccess && createHash && createReceipt) {
       console.log("Room creation confirmed:", createHash);
       setCreateRoomTxHash(createHash);
+
+      for (const log of createReceipt.logs) {
+        try {
+          if (
+            log.address.toLowerCase() !==
+            snakeGameContractInfo.address.toLowerCase()
+          )
+            continue;
+          const ev = decodeEventLog({
+            abi: snakeGameContractInfo.abi,
+            data: log.data,
+            topics: log.topics,
+          });
+          if (ev.eventName === "RoomCreated") {
+            const roomField = (ev.args as any).roomId ?? (ev.args as any).value;
+            setCreatedRoomId(Number(roomField));
+            break;
+          }
+        } catch {
+          // ignore malformed logs
+        }
+      }
+
       setCurrentStep("completed");
     }
-  }, [isCreateSuccess, createHash]);
+  }, [isCreateSuccess, createHash, createReceipt]);
 
   // Handle errors
   useEffect(() => {
@@ -340,6 +369,7 @@ export function useCreateGame(
     errorMessage,
     approvalTxHash,
     createRoomTxHash,
+    createdRoomId,
     needsApproval,
     usdcBalance,
     isConnected,
@@ -348,5 +378,6 @@ export function useCreateGame(
     handleCreateRoom,
     connectWallet,
     resetTransactionState,
+    createdGameId: createdRoomId,
   };
 }

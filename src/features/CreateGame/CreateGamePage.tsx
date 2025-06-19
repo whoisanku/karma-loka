@@ -7,6 +7,7 @@ import { useCreateGame } from "../../hooks/useCreateGame";
 import { useStorage } from "../../hooks/useStorage";
 import { useAccount } from "wagmi";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
+import GameCreatedModal from "./GameCreatedModal";
 
 interface CreateGamePageProps {
   fcUser: SDKUser | null;
@@ -39,6 +40,7 @@ export default function CreateGamePage({
   const [gameName, setGameName] = useState("");
   const [prizeAmount, setPrizeAmount] = useState<string>("");
   const [selectedPlayers, setSelectedPlayers] = useState<number>(4);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const { uploadGameMetadata } = useStorage();
 
@@ -47,6 +49,7 @@ export default function CreateGamePage({
     errorMessage,
     approvalTxHash,
     createRoomTxHash,
+    createdRoomId,
     needsApproval,
     usdcBalance,
     isConnected,
@@ -55,17 +58,15 @@ export default function CreateGamePage({
     handleCreateRoom,
     connectWallet,
     resetTransactionState,
+    createdGameId,
   } = useCreateGame(prizeAmount, selectedPlayers);
 
-  // Effect to handle completion
+  // Show success modal when quest creation completes
   useEffect(() => {
     if (currentStep === "completed") {
-      // Navigate after showing success message
-      setTimeout(() => {
-        navigate("/explore");
-      }, 3000);
+      setShowSuccess(true);
     }
-  }, [currentStep, navigate]);
+  }, [currentStep]);
 
   const handleSubmit = useCallback(async () => {
     // First, ensure wallet is connected
@@ -130,6 +131,19 @@ export default function CreateGamePage({
     handleButtonClick();
     resetTransactionState();
     navigate("/explore");
+  };
+
+  const handleShareOnFarcaster = () => {
+    const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
+    const frameUrl = `${baseUrl}/game/2`;
+    const text = `Join my quest "${gameName || defaultRoomName}" on Karma Loka!`;
+    
+    // Using the frame URL directly
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&url=${encodeURIComponent(frameUrl)}&embeds[]=${encodeURIComponent(frameUrl)}`;
+
+    console.log("Farcaster URL:", farcasterUrl);
+    window.open(farcasterUrl, "_blank");
+    setShowSuccess(false);
   };
 
   const isLoading =
@@ -246,7 +260,7 @@ export default function CreateGamePage({
       case "completed":
         return (
           <p className="text-green-500">
-            ✅ Quest created successfully! Redirecting...
+            ✅ Quest created successfully!
             {createRoomTxHash && (
               <a
                 href={`https://sepolia.basescan.org/tx/${createRoomTxHash}`}
@@ -400,6 +414,20 @@ export default function CreateGamePage({
           </button>
         </div>
       </div>
+      <GameCreatedModal
+        // isOpen={showSuccess}
+        isOpen={true}
+        onClose={() => {
+          setShowSuccess(false);
+        }}
+        onShare={() => {
+          handleShareOnFarcaster();
+        }}
+        onExplore={() => {
+          setShowSuccess(false);
+          navigate("/explore");
+        }}
+      />
     </div>
   );
 }
