@@ -183,35 +183,54 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
 // --- Middleware Logic ---
 async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: (err?: any) => void) {
     try {
-        const url = (req.url || '').replace(/\/+/g, '/');
+        // We only care about the path for routing, so we strip any query parameters.
+        const pathname = (req.url || '').split('?')[0].replace(/\/+/g, '/');
+
         const gameIdRegex = /^\/game\/(\d+)\/?$/;
-        const match = url.match(gameIdRegex);
+        const match = pathname.match(gameIdRegex);
 
         // Handle initial frame request for a specific game
         if (match) {
             const gameId = match[1];
             const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
             const imageUrl = `${baseUrl}/game/${gameId}/image`;
-            const proxyImageUrl = `https://proxy.wrpcd.net/?url=${encodeURIComponent(imageUrl)}&s=657b7bc90d830d647a5255ed5c33979029a1d4350b2c0eab8717d75826823d35`;
             
-            // Frame response matching the working format
+            // Correct, spec-compliant metadata for a rich, vertical frame.
             const frameHtml = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="${proxyImageUrl}" />
-    <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
-    <meta property="fc:frame:post_url" content="${baseUrl}/game/${gameId}" />
-    <meta property="fc:frame:button:1:type" content="link" />
-    <meta property="fc:frame:button:1:title" content="Join Quest" />
-    <meta property="fc:frame:button:1:target" content="${baseUrl}/game/${gameId}" />
+    <title>Karma Loka - Quest ${gameId}</title>
+
+    <!-- Open Graph Tags for rich previews -->
     <meta property="og:title" content="Karma Loka - Quest ${gameId}" />
+    <meta property="og:description" content="Join this epic quest in Karma Loka!" />
     <meta property="og:image" content="${imageUrl}" />
+
+    <!-- Dynamic Farcaster Frame -->
+    <meta name="fc:frame" content='${JSON.stringify({
+        version: "next",
+        image: {
+            url: imageUrl,
+            aspectRatio: "1:1"
+        },
+        buttons: [
+            {
+                label: "🎲 Join Quest",
+                action: "post",
+                target: `${baseUrl}/game/${gameId}/join`
+            }
+        ],
+        postUrl: `${baseUrl}/game/${gameId}/action`,
+        input: {
+            text: "Enter your move (1-6)"
+        }
+    })}' />
+
+    <!-- Cache control for dynamic image -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 </head>
 <body>
-    <h1>Karma Loka - Quest ${gameId}</h1>
     <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
 </body>
 </html>`;
@@ -224,7 +243,7 @@ async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: 
 
         // Handle image generation request
         const imageRegex = /^\/game\/(\d+)\/image\/?$/;
-        const imageMatch = url.match(imageRegex);
+        const imageMatch = pathname.match(imageRegex);
         if (imageMatch) {
             const gameId = imageMatch[1];
             try {

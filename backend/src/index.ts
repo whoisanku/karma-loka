@@ -193,21 +193,24 @@ app.get('/game/:gameId', async (req, res) => {
     const imageUrl = `${baseUrl}/game/${gameId}/image`;
     
     try {
-        // Generate frame HTML - keeping it very simple first
+        // Generate frame HTML with the new format
         const frameHtml = `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
                 <title>Karma Loka - Quest ${gameId}</title>
+                
+                <!-- Open Graph Tags -->
                 <meta property="og:title" content="Karma Loka - Quest ${gameId}" />
+                <meta property="og:description" content="Join this epic quest in Karma Loka!" />
                 <meta property="og:image" content="${imageUrl}" />
-                <meta property="fc:frame" content="vNext" />
-                <meta property="fc:frame:image" content="${imageUrl}" />
-                <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
-                <meta property="fc:frame:button:1" content="Join Quest" />
-                <meta property="fc:frame:button:1:action" content="link" />
-                <meta property="fc:frame:button:1:target" content="${baseUrl}/game/${gameId}" />
+                
+                <!-- Farcaster Frame -->
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+                
+                <!-- Cache Control -->
+                <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
@@ -217,6 +220,7 @@ app.get('/game/:gameId', async (req, res) => {
 
         console.log('Sending frame HTML response');
         res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'no-store');
         return res.send(frameHtml);
     } catch (error) {
         console.error('Error serving frame:', error);
@@ -355,6 +359,76 @@ app.get('/test-image.png', async (req, res) => {
     console.error('Error generating image:', error);
     res.status(500).json({ error: 'Failed to generate image', details: (error as Error).message });
   }
+});
+
+// Handle join quest action
+app.post('/game/:gameId/join', async (req, res) => {
+    const { gameId } = req.params;
+    console.log('Join request received for game:', gameId);
+    
+    try {
+        const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
+        const imageUrl = `${baseUrl}/game/${gameId}/image`;
+        
+        // Return a new frame response
+        const frameHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Karma Loka - Quest ${gameId}</title>
+                
+                <!-- Farcaster Frame -->
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+            </head>
+            <body>
+                <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
+            </body>
+            </html>
+        `;
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(frameHtml);
+    } catch (error) {
+        console.error('Error handling join:', error);
+        res.status(500).send('Error handling join request');
+    }
+});
+
+// Handle game actions (like rolling dice)
+app.post('/game/:gameId/action', async (req, res) => {
+    const { gameId } = req.params;
+    console.log('Action request received for game:', gameId);
+    
+    try {
+        const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
+        const imageUrl = `${baseUrl}/game/${gameId}/image`;
+        
+        // Return updated frame response
+        const frameHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Karma Loka - Quest ${gameId}</title>
+                
+                <!-- Farcaster Frame -->
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll Again","action":{"type":"launch_frame","name":"Karma Loka","url":"${baseUrl}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#2c1810"}}}' />
+            </head>
+            <body>
+                <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
+            </body>
+            </html>
+        `;
+        
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.send(frameHtml);
+    } catch (error) {
+        console.error('Error handling action:', error);
+        res.status(500).send('Error handling game action');
+    }
 });
 
 app.listen(PORT, () => {

@@ -7,12 +7,6 @@ import { framePlugin } from './backend/frame-plugin';
 export default defineConfig({
   plugins: [react(), tailwindcss(), framePlugin()],
   server: {
-    allowedHosts: true,
-    proxy: {
-      '/game': {
-        target: 'https://shall-advances-very-prague.trycloudflare.com',
-        changeOrigin: true,
-      }
-    }
+    allowedHosts: true
   },
 });

@@ -135,11 +135,10 @@ export default function CreateGamePage({
 
   const handleShareOnFarcaster = () => {
     const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
-    const frameUrl = `${baseUrl}/game/2`;
+    const frameUrl = `${baseUrl}/game/2?v=${Date.now()}`;
     const text = `Join my quest "${gameName || defaultRoomName}" on Karma Loka!`;
     
-    // Using the frame URL directly
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&url=${encodeURIComponent(frameUrl)}&embeds[]=${encodeURIComponent(frameUrl)}`;
+    const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(frameUrl)}`;
 
     console.log("Farcaster URL:", farcasterUrl);
     window.open(farcasterUrl, "_blank");
