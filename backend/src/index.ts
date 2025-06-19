@@ -1,10 +1,10 @@
-import express from 'express';
-import { ethers } from 'ethers';
-import path from 'path';
-import fs from 'fs';
-import nodeHtmlToImage from 'node-html-to-image';
-import cors from 'cors';
-import dotenv from 'dotenv';
+import express from "express";
+import { ethers } from "ethers";
+import path from "path";
+import fs from "fs";
+import nodeHtmlToImage from "node-html-to-image";
+import cors from "cors";
+import dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
@@ -15,36 +15,42 @@ const BASE_URL = process.env.DEPLOYED_ADDRESS_BASE_URL;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // Enable CORS for development
-app.use(cors({
-    origin: '*' // Allow all origins
-}));
+app.use(
+  cors({
+    origin: "*", // Allow all origins
+  })
+);
 
 // --- Contract Setup ---
 const contractInfo = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, '../../src/constants/snakeGameContractInfo.json'),
-    'utf-8'
+    path.resolve(__dirname, "../../src/constants/snakeGameContractInfo.json"),
+    "utf-8"
   )
 );
 const contractABI = contractInfo.abi;
 const contractAddress = contractInfo.address;
-const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
-const gameContract = new ethers.Contract(contractAddress, contractABI, provider);
+const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+const gameContract = new ethers.Contract(
+  contractAddress,
+  contractABI,
+  provider
+);
 
 // --- Helper Functions ---
 const truncateAddress = (addr: string): string => {
-  if (!addr || addr === ethers.ZeroAddress) return 'Waiting...';
+  if (!addr || addr === ethers.ZeroAddress) return "Waiting...";
   return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
 };
 
 const FARCASTER_API_URL =
-  'https://build.wield.xyz/farcaster/v2/user-by-connected-address';
-const FARCASTER_API_KEY = 'L60RP-AMTZV-O48J1-1N4H8-UVRDQ';
+  "https://build.wield.xyz/farcaster/v2/user-by-connected-address";
+const FARCASTER_API_KEY = "L60RP-AMTZV-O48J1-1N4H8-UVRDQ";
 
 async function fetchFarcasterProfile(address: string) {
   try {
     const res = await fetch(`${FARCASTER_API_URL}?address=${address}`, {
-      headers: { 'API-KEY': FARCASTER_API_KEY },
+      headers: { "API-KEY": FARCASTER_API_KEY },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -52,55 +58,60 @@ async function fetchFarcasterProfile(address: string) {
     if (!user) return null;
     return { username: user.username as string, pfp: user.pfp?.url as string };
   } catch (err) {
-    console.error('[Backend] Failed to fetch Farcaster profile', err);
+    console.error("[Backend] Failed to fetch Farcaster profile", err);
     return null;
   }
 }
 
 // --- Image Generation ---
 async function generateGameImage(gameId: string): Promise<Buffer> {
-    console.log('Starting image generation...');
-    try {
-        const fontPath = path.resolve(__dirname, '../../public/KGRedHands.ttf');
+  console.log("Starting image generation...");
+  try {
+    const fontPath = path.resolve(__dirname, "../../public/KGRedHands.ttf");
 
-        console.log('Font path:', fontPath);
+    console.log("Font path:", fontPath);
 
-        if (!fs.existsSync(fontPath)) {
-            throw new Error(`Font file not found at: ${fontPath}`);
-        }
+    if (!fs.existsSync(fontPath)) {
+      throw new Error(`Font file not found at: ${fontPath}`);
+    }
 
-        const fontBase64 = fs.readFileSync(fontPath).toString('base64');
+    const fontBase64 = fs.readFileSync(fontPath).toString("base64");
 
-        console.log('Fetching contract data...');
-        const roomInfo = await gameContract.getRoomInfo(gameId);
-        const playersInRoom = await gameContract.getRoomPlayers(gameId);
+    console.log("Fetching contract data...");
+    const roomInfo = await gameContract.getRoomInfo(gameId);
+    const playersInRoom = await gameContract.getRoomPlayers(gameId);
 
-        const maxPlayers = Number(roomInfo.maxParticipants);
-        const prizePool = ethers.formatUnits(roomInfo.stakeAmount * BigInt(playersInRoom.length), 6);
+    const requiredPlayers = Number(roomInfo.requiredParticipants);
+    const prizePool = ethers.formatUnits(
+      roomInfo.stakeAmount * BigInt(playersInRoom.length),
+      6
+    );
 
-        console.log('Room data:', { playersInRoom, maxPlayers, prizePool });
+    console.log("Room data:", { playersInRoom, requiredPlayers, prizePool });
 
-        const playerInfos = await Promise.all(
-            playersInRoom.map(async (addr) => {
-                const profile = await fetchFarcasterProfile(addr);
-                return {
-                    displayName: profile?.username ?? truncateAddress(addr),
-                    avatar: profile?.pfp ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`
-                };
-            })
-        );
+    const playerInfos = await Promise.all(
+      playersInRoom.map(async (addr: string) => {
+        const profile = await fetchFarcasterProfile(addr);
+        return {
+          displayName: profile?.username ?? truncateAddress(addr),
+          avatar:
+            profile?.pfp ??
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${addr}`,
+        };
+      })
+    );
 
-        for (let i = playersInRoom.length; i < maxPlayers; i++) {
-            playerInfos.push({
-                displayName: 'Waiting...',
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`
-            });
-        }
+    for (let i = playersInRoom.length; i < requiredPlayers; i++) {
+      playerInfos.push({
+        displayName: "Waiting...",
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=slot${i}`,
+      });
+    }
 
-        const playerHtml = playerInfos
-            .map(
-                (p) =>
-                    `<div style="
+    const playerHtml = playerInfos
+      .map(
+        (p) =>
+          `<div style="
                         display: flex;
                         align-items: center;
                         background: rgba(44, 24, 16, 0.9);
@@ -127,10 +138,10 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                             text-shadow: 2px 2px 4px #000;
                         ">${p.displayName}</span>
                     </div>`
-            )
-            .join('');
-        
-        const html = `
+      )
+      .join("");
+
+    const html = `
             <html>
                 <head>
                     <style>
@@ -183,47 +194,47 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
             </html>
         `;
 
-        console.log('Generating image...');
-        const imageBuffer = await nodeHtmlToImage({
-            html,
-            puppeteerArgs: { 
-                args: ['--no-sandbox'],
-                defaultViewport: {
-                    width: 600,
-                    height: 315
-                }
-            },
-            encoding: 'binary'
-        }) as Buffer;
-        
-        console.log('Image generated successfully');
-        return imageBuffer;
-    } catch (error: any) {
-        console.error('Error generating image:', error);
-        throw error;
-    }
+    console.log("Generating image...");
+    const imageBuffer = (await nodeHtmlToImage({
+      html,
+      puppeteerArgs: {
+        args: ["--no-sandbox"],
+        defaultViewport: {
+          width: 600,
+          height: 315,
+        },
+      },
+      encoding: "binary",
+    })) as Buffer;
+
+    console.log("Image generated successfully");
+    return imageBuffer;
+  } catch (error: any) {
+    console.error("Error generating image:", error);
+    throw error;
+  }
 }
 
 // --- Routes ---
-app.get('/game/:gameId', async (req, res) => {
-    const { gameId } = req.params;
-    console.log('--------------------');
-    console.log('Frame request received:');
-    console.log('Game ID:', gameId);
-    console.log('Headers:', req.headers);
-    console.log('User Agent:', req.get('user-agent'));
-    console.log('--------------------');
-    
-    // Check if it's a Farcaster request
-    const userAgent = req.get('user-agent') || '';
-    const isFarcaster = userAgent.toLowerCase().includes('farcaster');
-    console.log('Is Farcaster request:', isFarcaster);
-    
-    const imageUrl = `${BASE_URL}/game/${gameId}/image`;
-    
-    try {
-        // Generate frame HTML with the new format
-        const frameHtml = `
+app.get("/game/:gameId", async (req, res) => {
+  const { gameId } = req.params;
+  console.log("--------------------");
+  console.log("Frame request received:");
+  console.log("Game ID:", gameId);
+  console.log("Headers:", req.headers);
+  console.log("User Agent:", req.get("user-agent"));
+  console.log("--------------------");
+
+  // Check if it's a Farcaster request
+  const userAgent = req.get("user-agent") || "";
+  const isFarcaster = userAgent.toLowerCase().includes("farcaster");
+  console.log("Is Farcaster request:", isFarcaster);
+
+  const imageUrl = `${BASE_URL}/game/${gameId}/image`;
+
+  try {
+    // Generate frame HTML with the new format
+    const frameHtml = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -236,20 +247,7 @@ app.get('/game/:gameId', async (req, res) => {
                 <meta property="og:image" content="${imageUrl}" />
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='${JSON.stringify({
-                    version: "next",
-                    image: { url: imageUrl, aspectRatio: "1.91:1" },
-                    button: {
-                        title: "🎲 Join My Quest",
-                        action: {
-                            type: "launch_frame",
-                            name: "Karma Loka",
-                            url: `${FRONTEND_URL}/explore?join=${gameId}`,
-                            splashImageUrl: imageUrl,
-                            splashBackgroundColor: "#954520"
-                        }
-                    }
-                })}' />
+               <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/explore?join=${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
                 
                 <!-- Cache Control -->
                 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -260,41 +258,44 @@ app.get('/game/:gameId', async (req, res) => {
             </html>
         `;
 
-        console.log('Sending frame HTML response');
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'no-store');
-        return res.send(frameHtml);
-    } catch (error) {
-        console.error('Error serving frame:', error);
-        res.status(500).send('Error serving frame');
-    }
+    console.log("Sending frame HTML response");
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(frameHtml);
+  } catch (error) {
+    console.error("Error serving frame:", error);
+    res.status(500).send("Error serving frame");
+  }
 });
 
-app.get('/game/:gameId/image', async (req, res) => {
-    const { gameId } = req.params;
-    console.log('--------------------');
-    console.log('Image request received:');
-    console.log('Game ID:', gameId);
-    console.log('Headers:', req.headers);
-    console.log('--------------------');
-    
-    try {
-        console.log('Generating image...');
-        const image = await generateGameImage(gameId);
-        console.log('Image generated successfully');
-        
-        res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Cache-Control', 'no-cache');
-        return res.send(image);
-    } catch (error: any) {
-        console.error('Failed to generate image:', error);
-        res.status(500).json({ error: 'Failed to generate image', details: (error as Error).message });
-    }
+app.get("/game/:gameId/image", async (req, res) => {
+  const { gameId } = req.params;
+  console.log("--------------------");
+  console.log("Image request received:");
+  console.log("Game ID:", gameId);
+  console.log("Headers:", req.headers);
+  console.log("--------------------");
+
+  try {
+    console.log("Generating image...");
+    const image = await generateGameImage(gameId);
+    console.log("Image generated successfully");
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-cache");
+    return res.send(image);
+  } catch (error: any) {
+    console.error("Failed to generate image:", error);
+    res.status(500).json({
+      error: "Failed to generate image",
+      details: (error as Error).message,
+    });
+  }
 });
 
 // Test frame endpoint
-app.post('/test-frame', (req, res) => {
-    res.send(`
+app.post("/test-frame", (req, res) => {
+  res.send(`
         <!DOCTYPE html>
         <html>
             <head>
@@ -313,8 +314,8 @@ app.post('/test-frame', (req, res) => {
 });
 
 // Test image endpoint
-app.get('/test-image.png', async (req, res) => {
-  console.log('Generating frame image...');
+app.get("/test-image.png", async (req, res) => {
+  console.log("Generating frame image...");
   try {
     const image = await nodeHtmlToImage({
       html: `
@@ -382,37 +383,40 @@ app.get('/test-image.png', async (req, res) => {
         </html>
       `,
       puppeteerArgs: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
         defaultViewport: {
           width: 1200,
-          height: 628
-        }
+          height: 628,
+        },
       },
-      type: 'png',
-      encoding: 'binary'
+      type: "png",
+      encoding: "binary",
     });
-    
+
     // Set proper headers for image serving
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=31536000");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(image);
   } catch (error: any) {
-    console.error('Error generating image:', error);
-    res.status(500).json({ error: 'Failed to generate image', details: (error as Error).message });
+    console.error("Error generating image:", error);
+    res.status(500).json({
+      error: "Failed to generate image",
+      details: (error as Error).message,
+    });
   }
 });
 
 // Handle join quest action
-app.post('/game/:gameId/join', async (req, res) => {
-    const { gameId } = req.params;
-    console.log('Join request received for game:', gameId);
-    
-    try {
-        const imageUrl = `${BASE_URL}/game/${gameId}/image`;
-        
-        // Return a new frame response
-        const frameHtml = `
+app.post("/game/:gameId/join", async (req, res) => {
+  const { gameId } = req.params;
+  console.log("Join request received for game:", gameId);
+
+  try {
+    const imageUrl = `${BASE_URL}/game/${gameId}/image`;
+
+    // Return a new frame response
+    const frameHtml = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -421,18 +425,18 @@ app.post('/game/:gameId/join', async (req, res) => {
                 
                 <!-- Farcaster Frame -->
                 <meta name="fc:frame" content='${JSON.stringify({
-                    version: "next",
-                    image: { url: imageUrl, aspectRatio: "1.91:1" },
-                    button: {
-                        title: "🎲 Roll",
-                        action: {
-                            type: "launch_frame",
-                            name: "Karma Loka",
-                            url: `${FRONTEND_URL}/game/${gameId}`,
-                            splashImageUrl: imageUrl,
-                            splashBackgroundColor: "#954520"
-                        }
-                    }
+                  version: "next",
+                  image: { url: imageUrl, aspectRatio: "1.91:1" },
+                  button: {
+                    title: "🎲 Roll",
+                    action: {
+                      type: "launch_frame",
+                      name: "Karma Loka",
+                      url: `${FRONTEND_URL}/game/${gameId}`,
+                      splashImageUrl: imageUrl,
+                      splashBackgroundColor: "#954520",
+                    },
+                  },
                 })}' />
             </head>
             <body>
@@ -440,26 +444,26 @@ app.post('/game/:gameId/join', async (req, res) => {
             </body>
             </html>
         `;
-        
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'no-store');
-        return res.send(frameHtml);
-    } catch (error) {
-        console.error('Error handling join:', error);
-        res.status(500).send('Error handling join request');
-    }
+
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(frameHtml);
+  } catch (error) {
+    console.error("Error handling join:", error);
+    res.status(500).send("Error handling join request");
+  }
 });
 
 // Handle game actions (like rolling dice)
-app.post('/game/:gameId/action', async (req, res) => {
-    const { gameId } = req.params;
-    console.log('Action request received for game:', gameId);
-    
-    try {
-        const imageUrl = `${BASE_URL}/game/${gameId}/image`;
-        
-        // Return updated frame response
-        const frameHtml = `
+app.post("/game/:gameId/action", async (req, res) => {
+  const { gameId } = req.params;
+  console.log("Action request received for game:", gameId);
+
+  try {
+    const imageUrl = `${BASE_URL}/game/${gameId}/image`;
+
+    // Return updated frame response
+    const frameHtml = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -468,18 +472,18 @@ app.post('/game/:gameId/action', async (req, res) => {
                 
                 <!-- Farcaster Frame -->
                 <meta name="fc:frame" content='${JSON.stringify({
-                    version: "next",
-                    image: { url: imageUrl, aspectRatio: "1.91:1" },
-                    button: {
-                        title: "🎲 Roll Again",
-                        action: {
-                            type: "launch_frame",
-                            name: "Karma Loka",
-                            url: `${FRONTEND_URL}/game/${gameId}`,
-                            splashImageUrl: imageUrl,
-                            splashBackgroundColor: "#954520"
-                        }
-                    }
+                  version: "next",
+                  image: { url: imageUrl, aspectRatio: "1.91:1" },
+                  button: {
+                    title: "🎲 Roll Again",
+                    action: {
+                      type: "launch_frame",
+                      name: "Karma Loka",
+                      url: `${FRONTEND_URL}/game/${gameId}`,
+                      splashImageUrl: imageUrl,
+                      splashBackgroundColor: "#954520",
+                    },
+                  },
                 })}' />
             </head>
             <body>
@@ -487,17 +491,17 @@ app.post('/game/:gameId/action', async (req, res) => {
             </body>
             </html>
         `;
-        
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'no-store');
-        return res.send(frameHtml);
-    } catch (error) {
-        console.error('Error handling action:', error);
-        res.status(500).send('Error handling game action');
-    }
+
+    res.setHeader("Content-Type", "text/html");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(frameHtml);
+  } catch (error) {
+    console.error("Error handling action:", error);
+    res.status(500).send("Error handling game action");
+  }
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
-    console.log(`🌍 Using base URL: ${BASE_URL}`);
-}); 
+  console.log(`🚀 Backend server is running on http://localhost:${PORT}`);
+  console.log(`🌍 Using base URL: ${BASE_URL}`);
+});
