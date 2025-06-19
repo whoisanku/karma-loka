@@ -5,8 +5,8 @@ import { framePlugin } from './backend/frame-plugin';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), framePlugin()],
-  server: {
-    allowedHosts: true
-  },
+    plugins: [react(), tailwindcss(), framePlugin()],
+    server: {
+      allowedHosts: true
+    }
 });
