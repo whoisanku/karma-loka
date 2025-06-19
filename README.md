@@ -39,7 +39,13 @@ brew install cloudflare/cloudflare/cloudflared
 cloudflared tunnel --url http://localhost:5173
 ```
 
-3. Copy the generated `.trycloudflare.com` URL - this will be your Frame's public URL.
+3. Copy the generated `.trycloudflare.com` URL - this will be your Frame's public URL. Create a `.env` file and set:
+
+```bash
+VITE_FRAME_BASE_URL=<your tunnel URL>
+```
+
+This base URL is used when sharing quests to Farcaster.
 
 ## Farcaster Frame Configuration
 

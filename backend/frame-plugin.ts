@@ -84,26 +84,24 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                     `<div style="
                         display: flex;
                         align-items: center;
-                        background: rgba(44, 24, 16, 0.9);
-                        border-radius: 10px;
-                        padding: 12px;
-                        margin-bottom: 10px;
+                        background: rgba(44, 24, 16, 0.8);
+                        border-radius: 8px;
+                        padding: 8px 12px;
                         border: 2px solid #ffd700;
-                        width: 100%;
+                        gap: 10px;
                     ">
-                        <img 
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${playersInRoom[index] || `slot${index}`}" 
-                            width="32" 
-                            height="32" 
+                        <img
+                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${playersInRoom[index] || `slot${index}`}"
+                            width="48"
+                            height="48"
                             style="
                                 border-radius: 50%;
-                                margin-right: 12px;
                                 border: 2px solid #ffd700;
                                 background: #2c1810;
                             "
                         />
                         <span style="
-                            font-size: 20px;
+                            font-size: 28px;
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
                             font-family: 'KGRedHands', monospace;
@@ -123,45 +121,48 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                         body {
                             margin: 0;
                             padding: 0;
-                            width: 600px;
-                            height: 600px;
+                            width: 1200px;
+                            height: 630px;
                             display: flex;
                             justify-content: center;
                             align-items: center;
-                            background: transparent;
+                            background: #2c1810 url('${imageUrl}') center/cover no-repeat;
                         }
                         .container {
-                            width: 90%;
-                            max-width: 500px;
-                            background-image: url('${imageUrl}');
-                            background-size: cover;
+                            width: 92%;
+                            max-width: 1100px;
+                            background: rgba(0,0,0,0.55);
                             border-radius: 15px;
-                            padding: 20px;
-                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+                            padding: 24px;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
                         }
                         .title {
                             text-align: center;
                             font-family: 'KGRedHands', sans-serif;
-                            font-size: 32px;
+                            font-size: 60px;
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
                             margin-bottom: 20px;
-                            padding-bottom: 15px;
-                            border-bottom: 2px solid #ffd700;
+                        }
+                        .prize {
+                            text-align: center;
+                            font-size: 36px;
+                            color: #ff8c00;
+                            margin-bottom: 25px;
+                            font-family: 'KGRedHands', sans-serif;
                         }
                         .players-container {
                             display: flex;
-                            flex-direction: column;
-                            gap: 10px;
-                            padding: 10px;
-                            background: rgba(0, 0, 0, 0.3);
-                            border-radius: 10px;
+                            flex-wrap: wrap;
+                            gap: 14px;
+                            justify-content: center;
                         }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <div class="title">Quest #${gameId} • ${prizePool} USDC</div>
+                        <div class="title">Quest #${gameId}</div>
+                        <div class="prize">Prize Pool: ${prizePool} USDC</div>
                         <div class="players-container">
                             ${playerHtml}
                         </div>
@@ -175,8 +176,8 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
             puppeteerArgs: { 
                 args: ['--no-sandbox'],
                 defaultViewport: {
-                    width: 600,
-                    height: 600
+                    width: 1200,
+                    height: 630
                 }
             },
             encoding: 'binary'
@@ -218,7 +219,7 @@ async function frameMiddleware(req: IncomingMessage, res: ServerResponse, next: 
         version: "next",
         image: {
             url: imageUrl,
-            aspectRatio: "1:1"
+            aspectRatio: "1.91:1"
         },
         buttons: [
             {

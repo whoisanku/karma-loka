@@ -134,12 +134,16 @@ export default function CreateGamePage({
   };
 
   const handleShareOnFarcaster = () => {
-    const baseUrl = 'https://shall-advances-very-prague.trycloudflare.com';
+    if (!createdRoomId) return;
+
+    const envUrl = import.meta.env.VITE_FRAME_BASE_URL || "";
+    const baseUrl = envUrl.replace(/\/+$/, "") || window.location.origin;
     const frameUrl = `${baseUrl}/game/${createdRoomId}?v=${Date.now()}`;
-    // const frameUrl = `${baseUrl}/game/2?v=${Date.now()}`;
-    const text = `Join my quest "${gameName || defaultRoomName}" on Karma Loka!`;
-    
-    const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(frameUrl)}`;
+
+    const text = `Join my quest \"${gameName || defaultRoomName}\" on Karma Loka!`;
+
+    const farcasterUrl =
+      `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(frameUrl)}`;
 
     console.log("Farcaster URL:", farcasterUrl);
     window.open(farcasterUrl, "_blank");

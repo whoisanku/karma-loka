@@ -12,7 +12,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.DEPLOYED_ADDRESS_BASE_URL;
-const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // Enable CORS for development
 app.use(cors({
@@ -78,28 +77,27 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                     `<div style="
                         display: flex;
                         align-items: center;
-                        background: rgba(44, 24, 16, 0.9);
-                        border-radius: 10px;
+                        background: rgba(44, 24, 16, 0.8);
+                        border-radius: 8px;
                         padding: 8px 12px;
-                        margin-bottom: 8px;
-                        border: 1px solid #ffd700;
+                        border: 2px solid #ffd700;
+                        gap: 10px;
                     ">
-                        <img 
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${name}" 
-                            width="40" 
-                            height="40" 
+                        <img
+                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=${playersInRoom[index] || `slot${index}`}"
+                            width="48"
+                            height="48"
                             style="
                                 border-radius: 50%;
-                                margin-right: 12px;
                                 border: 2px solid #ffd700;
                                 background: #2c1810;
                             "
                         />
                         <span style="
-                            font-size: 24px;
-                            font-weight: bold;
+                            font-size: 28px;
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
+                            font-family: 'KGRedHands', monospace;
                         ">${name}</span>
                     </div>`
             )
@@ -116,41 +114,47 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
                     </style>
                 </head>
                 <body style="
-                    width: 600px; 
-                    height: 315px; 
+                    width: 1200px;
+                    height: 630px;
                     margin: 0;
                     font-family: 'KGRedHands', sans-serif; 
                     display: flex; 
                     flex-direction: column; 
                     align-items: center; 
-                    background-image: url('${imageUrl}');
-                    background-size: cover;
-                    padding: 20px;
+                    background: #2c1810 url('${imageUrl}') center/cover no-repeat;
+                    padding: 24px;
                     box-sizing: border-box;
                 ">
                     <div style="
-                        width: 100%;
-                        max-width: 500px;
-                        background: rgba(44, 24, 16, 0.85); 
+                        width: 92%;
+                        max-width: 1100px;
+                        background: rgba(0,0,0,0.55);
                         border-radius: 15px;
-                        padding: 15px;
-                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                        padding: 24px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.6);
                     ">
                         <div style="
                             text-align: center;
-                            font-size: 28px;
+                            font-size: 60px;
                             color: #ffd700;
                             text-shadow: 2px 2px 4px #000;
-                            margin-bottom: 15px;
-                            border-bottom: 2px solid #ffd700;
-                            padding-bottom: 10px;
+                            margin-bottom: 20px;
                         ">
-                            Quest #${gameId} • ${prizePool} USDC
+                            Quest #${gameId}
+                        </div>
+                        <div style="
+                            text-align: center;
+                            font-size: 36px;
+                            color: #ff8c00;
+                            margin-bottom: 25px;
+                        ">
+                            Prize Pool: ${prizePool} USDC
                         </div>
                         <div style="
                             display: flex;
-                            flex-direction: column;
-                            gap: 8px;
+                            flex-wrap: wrap;
+                            gap: 14px;
+                            justify-content: center;
                         ">
                             ${playerHtml}
                         </div>
@@ -165,8 +169,8 @@ async function generateGameImage(gameId: string): Promise<Buffer> {
             puppeteerArgs: { 
                 args: ['--no-sandbox'],
                 defaultViewport: {
-                    width: 600,
-                    height: 315
+                    width: 1200,
+                    height: 630
                 }
             },
             encoding: 'binary'
@@ -212,7 +216,7 @@ app.get('/game/:gameId', async (req, res) => {
                 <meta property="og:image" content="${imageUrl}" />
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='{"version":"next","image":{"url":"${imageUrl}","aspectRatio":"1.91:1"},"buttons":[{"label":"🎲 Join My Quest","action":"post","target":"${BASE_URL}/game/${gameId}/join"}],"postUrl":"${BASE_URL}/game/${gameId}/action","input":{"text":"Enter your move (1-6)"}}' />
                 
                 <!-- Cache Control -->
                 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -383,7 +387,7 @@ app.post('/game/:gameId/join', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='{"version":"next","image":{"url":"${imageUrl}","aspectRatio":"1.91:1"},"buttons":[{"label":"🎲 Roll","action":"post","target":"${BASE_URL}/game/${gameId}/action"}]}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
@@ -417,7 +421,7 @@ app.post('/game/:gameId/action', async (req, res) => {
                 <title>Karma Loka - Quest ${gameId}</title>
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Roll Again","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='{"version":"next","image":{"url":"${imageUrl}","aspectRatio":"1.91:1"},"buttons":[{"label":"🎲 Roll Again","action":"post","target":"${BASE_URL}/game/${gameId}/action"}]}' />
             </head>
             <body>
                 <img src="${imageUrl}" alt="Quest ${gameId}" style="width: 100%; height: auto;" />
