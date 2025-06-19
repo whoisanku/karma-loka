@@ -134,11 +134,11 @@ export default function CreateGamePage({
   };
 
   const handleShareOnFarcaster = () => {
-    const baseUrl = 'https://vsnet-budget-injuries-decor.trycloudflare.com';
+    const baseUrl = "https://titten-visual-dl-socks.trycloudflare.com";
     const frameUrl = `${baseUrl}/game/${createdRoomId}?v=${Date.now()}`;
     // const frameUrl = `${baseUrl}/game/2?v=${Date.now()}`;
     const text = `Join my quest "${gameName || defaultRoomName}" on Karma Loka!`;
-    
+
     const farcasterUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(frameUrl)}`;
 
     console.log("Farcaster URL:", farcasterUrl);
