@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
 import useExplore from "../../hooks/useExplore";
+import useAllGames from "../../hooks/useAllGames";
 import { useParticipate } from "../../hooks/useParticipate";
 import { useGameMetadata } from "../../hooks/useGameMetadata";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
@@ -42,12 +43,23 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     roomsPerPage,
     setCurrentPage,
   } = useExplore();
+  const {
+    games: allGames,
+    loading: allLoading,
+    error: allError,
+  } = useAllGames();
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, setCurrentPage]);
+
+  const sourceGames = searchTerm.trim() ? allGames : games;
 
   const allAddressesToFetch = useMemo(() => {
-    const players = games.flatMap((game) => game.players);
-    const creators = games.map((game) => game.creator);
+    const players = sourceGames.flatMap((game) => game.players);
+    const creators = sourceGames.map((game) => game.creator);
     return Array.from(new Set([...players, ...creators]));
-  }, [games]);
+  }, [sourceGames]);
 
   const { profiles: farcasterProfiles } =
     useFarcasterProfiles(allAddressesToFetch);
@@ -140,7 +152,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
   // Filter games based on activeTab, user participation and search term
   const filteredGames = useMemo(() => {
-    let result = games;
+    let result = sourceGames;
     if (activeTab === "joined") {
       result = result.filter((game) =>
         address ? game.players.includes(address) : false
@@ -153,20 +165,36 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         const profile = farcasterProfiles[game.creator];
         const creatorName =
           profile?.username || profile?.displayName || game.creator;
-        return creatorName.toLowerCase().includes(term);
+        const roomName = (game as any).name?.toLowerCase() || "";
+        return (
+          creatorName.toLowerCase().includes(term) || roomName.includes(term)
+        );
       });
     }
 
     return result;
-  }, [activeTab, games, address, searchTerm, farcasterProfiles]);
+  }, [activeTab, sourceGames, address, searchTerm, farcasterProfiles]);
 
   // Show error state if there's a critical error
-  if (error && games.length === 0 && !isLoading) {
+  const loading = searchTerm.trim() ? allLoading : isLoading;
+  const pageError = searchTerm.trim() ? allError : error;
+
+  const paginatedGames = useMemo(() => {
+    if (!searchTerm.trim()) return filteredGames;
+    const start = (currentPage - 1) * roomsPerPage;
+    return filteredGames.slice(start, start + roomsPerPage);
+  }, [filteredGames, searchTerm, currentPage, roomsPerPage]);
+
+  const totalPages = searchTerm.trim()
+    ? Math.max(1, Math.ceil(filteredGames.length / roomsPerPage))
+    : Math.ceil(Number(lastRoomId) / roomsPerPage);
+
+  if (pageError && filteredGames.length === 0 && !loading) {
     return (
       <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
         <div className="text-red-400 bg-red-900/20 border border-red-500/50 rounded-lg p-4">
           <p className="font-semibold mb-2">Error Loading Games</p>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm">{pageError}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
@@ -178,7 +206,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     );
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
         <div className="text-white">Loading games...</div>
@@ -205,11 +233,11 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </button>
       </div>
 
-      {/* Search by creator */}
+      {/* Search by creator or room name */}
       <div className="relative mx-4">
         <input
           type="text"
-          placeholder="Search by creator..."
+          placeholder="Search games..."
           className="w-full bg-[#1a0f09] border-2 border-[#8b4513] focus:border-[#ffd700] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-[#ffd700] transition-colors"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -234,13 +262,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       </div>
 
       {/* Show error message if there are some games but also errors */}
-      {error && games.length > 0 && (
+      {pageError && filteredGames.length > 0 && (
         <div className="text-yellow-400 bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3 text-sm">
-          {error}
+          {pageError}
         </div>
       )}
 
-      {filteredGames.length === 0 && !isLoading ? (
+      {filteredGames.length === 0 && !loading ? (
         <p className="text-white">
           {activeTab === "joined"
             ? "No joined quests found."
@@ -248,9 +276,9 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </p>
       ) : null}
 
-      {filteredGames.length > 0 && (
+      {paginatedGames.length > 0 && (
         <div className="space-y-4">
-          {filteredGames.map((game, index) => (
+          {paginatedGames.map((game, index) => (
             <GameCard
               key={`${game.id}-${index}`}
               game={game}
@@ -263,7 +291,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       )}
 
       {/* Pagination Controls */}
-      {!!lastRoomId && Number(lastRoomId) > roomsPerPage && (
+      {totalPages > 1 && (
         <div className="flex justify-center items-center space-x-4 mt-6">
           <button
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -273,17 +301,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
             Previous
           </button>
 
-          <span className="text-white text-sm">
-            Page {currentPage} of {Math.ceil(Number(lastRoomId) / roomsPerPage)}
-          </span>
+          <span className="text-white text-sm">Page {currentPage} of {totalPages}</span>
 
           <button
             onClick={() => setCurrentPage((prev) => prev + 1)}
-            disabled={
-              currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)
-            }
+            disabled={currentPage >= totalPages}
             className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-              currentPage >= Math.ceil(Number(lastRoomId) / roomsPerPage)
+              currentPage >= totalPages
                 ? "text-gray-500 bg-gray-700 border-gray-600 cursor-not-allowed"
                 : "text-[#ffd700] bg-[#2c1810] border-[#8b4513] hover:bg-[#8b4513]"
             }`}
