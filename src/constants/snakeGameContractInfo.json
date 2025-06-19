@@ -1,5 +1,5 @@
 {
-  "address": "0x3a321f0eFFB6BEF748ACBeA1C18832D8C616266B",
+  "address": "0x63352AAc89F7630dEEE118BD2Db76c5010d6b81B",
   "abi": [
     {
       "inputs": [
@@ -416,6 +416,54 @@
           "internalType": "uint8",
           "name": "prasad",
           "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getUserRooms",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getUserStats",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalGames",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalWins",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rank",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",

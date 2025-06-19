@@ -37,6 +37,8 @@ brew install cloudflare/cloudflare/cloudflared
 
 ```bash
 cloudflared tunnel --url http://localhost:5173
+
+cloudflared tunnel --url http://localhost:3000
 ```
 
 3. Copy the generated `.trycloudflare.com` URL - this will be your Frame's public URL.

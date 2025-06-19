@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
@@ -7,6 +7,7 @@ import { useParticipate } from "../../hooks/useParticipate";
 import { useGameMetadata } from "../../hooks/useGameMetadata";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
 import { useFarcasterProfiles } from "../../hooks/useFarcasterProfiles";
+import useUserRooms from "../../hooks/useUserRooms";
 
 interface Game {
   id: string;
@@ -29,9 +30,16 @@ interface ExplorePageProps {
 export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address } = useAccount();
+  const { roomIds: joinedRoomIds } = useUserRooms(address ?? "");
   const [activeTab, setActiveTab] = useState("all");
-  const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+
+  const handleCloseConfirmJoinModal = () => {
+    setSelectedGame(null);
+    setSearchParams({}, { replace: true });
+  };
+
   const {
     games,
     error,
@@ -41,6 +49,21 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     roomsPerPage,
     setCurrentPage,
   } = useExplore();
+
+  // Sync selectedGame with 'join' URL param
+  useEffect(() => {
+    const joinParam = searchParams.get("join");
+    if (joinParam && games.length > 0) {
+      const foundGame = games.find(
+        (game) => Number(game.id.split("#")[1]) === Number(joinParam)
+      );
+      setSelectedGame(foundGame ?? null);
+    } else {
+      setSelectedGame(null);
+    }
+  }, [searchParams, games]);
+
+  const { metadata } = useGameMetadata(selectedGame?.metadataUri ?? "");
 
   const allAddressesToFetch = useMemo(() => {
     const players = games.flatMap((game) => game.players);
@@ -102,7 +125,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const handleJoinQuestClick = (game: Game) => {
     handleButtonClick();
     setSelectedGame(game);
-    setIsConfirmJoinModalOpen(true);
+    setSearchParams({ join: game.id.split('#')[1] });
   };
 
   // Trigger participation flow
@@ -131,7 +154,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   // Navigate after successful participation
   useEffect(() => {
     if (participateStep === "completed" && selectedGame) {
-      setIsConfirmJoinModalOpen(false);
       const id = selectedGame.id.split("#")[1];
       navigate(`/game/${id}`);
     }
@@ -140,12 +162,13 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   // Filter games based on activeTab and user participation
   const filteredGames = useMemo(() => {
     if (activeTab === "joined") {
-      return games.filter((game) =>
-        address ? game.players.includes(address) : false
-      );
+      return games.filter((game) => {
+        const idNum = Number(game.id.split("#")[1]);
+        return joinedRoomIds.includes(idNum);
+      });
     }
     return games;
-  }, [activeTab, games, address]);
+  }, [activeTab, games, joinedRoomIds]);
 
   // Show error state if there's a critical error
   if (error && games.length === 0 && !isLoading) {
@@ -174,8 +197,8 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   }
 
   return (
-    <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
-      <div className="flex justify-center mb-4">
+    <div className="mx-auto max-w-xl text-center space-y-6 pb-20">
+      <div className="flex pt-2 pb-2 justify-center mb-4 sticky top-0 z-30 bg-[#2c1810]">
         <button
           type="button"
           onClick={() => setActiveTab("all")}
@@ -191,14 +214,12 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           Joined Rounds
         </button>
       </div>
-
       {/* Show error message if there are some games but also errors */}
       {error && games.length > 0 && (
         <div className="text-yellow-400 bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3 text-sm">
           {error}
         </div>
       )}
-
       {filteredGames.length === 0 && !isLoading ? (
         <p className="text-white">
           {activeTab === "joined"
@@ -206,7 +227,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
             : "No games found. Create the first quest!"}
         </p>
       ) : null}
-
       {filteredGames.length > 0 && (
         <div className="space-y-4">
           {filteredGames.map((game, index) => (
@@ -215,11 +235,11 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
               game={game}
               onJoinClick={handleJoinQuestClick}
               farcasterProfiles={farcasterProfiles}
+              handleButtonClick={handleButtonClick}
             />
           ))}
         </div>
       )}
-
       {/* Pagination Controls */}
       {!!lastRoomId && Number(lastRoomId) > roomsPerPage && (
         <div className="flex justify-center items-center space-x-4 mt-6">
@@ -250,71 +270,72 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           </button>
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={() => {
-          handleButtonClick();
-          navigate("/leaderboard");
-        }}
-        className="fixed bottom-3 left-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
-        title="Leaderboard"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          className="lucide lucide-trophy-icon lucide-trophy"
+      <div className="relative h-full">
+        <button
+          type="button"
+          onClick={() => {
+            handleButtonClick();
+            navigate("/leaderboard");
+          }}
+          className="fixed bottom-8 left-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 transition-all duration-300 transform hover:scale-110"
+          title="Leaderboard"
         >
-          <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" />
-          <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978" />
-          <path d="M18 9h1.5a1 1 0 0 0 0-5H18" />
-          <path d="M4 22h16" />
-          <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
-          <path d="M6 9H4.5a1 1 0 0 1 0-5H6" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleShowFormClick}
-        className="fixed bottom-8 right-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5 z-30 transition-all duration-300 transform hover:scale-110"
-        title="Create Game"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2.5"
-          stroke="currentColor"
-          className="w-8 h-8"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 4.5v15m7.5-7.5h-15"
-          />
-        </svg>
-      </button>
-
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            className="lucide lucide-trophy-icon lucide-trophy"
+          >
+            <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978" />
+            <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978" />
+            <path d="M18 9h1.5a1 1 0 0 0 0-5H18" />
+            <path d="M4 22h16" />
+            <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
+            <path d="M6 9H4.5a1 1 0 0 1 0-5H6" />
+          </svg>
+        </button>
+        <div className="absolute inset-0 pointer-events-none pb-[3.25rem]">
+          <button
+            type="button"
+            onClick={handleShowFormClick}
+            className="fixed bottom-8 right-8 bg-gradient-to-r from-[#ffd700] to-[#ff8c00] text-[#2c1810] w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-3xl border-2 border-[#8b4513] hover:from-[#ffed4a] hover:to-[#ffa500] active:translate-y-0.5  transition-all duration-300 transform hover:scale-110"
+            title="Create Game"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2.5"
+              stroke="currentColor"
+              className="w-8 h-8"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
       {/* Confirmation Join Modal */}
-      {isConfirmJoinModalOpen && selectedGame && (
+      {selectedGame && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gradient-to-b from-black/80 to-[#2c1810]/90"
-            onClick={() => setIsConfirmJoinModalOpen(false)}
+            onClick={() => setSelectedGame(null)}
             aria-hidden="true"
           />
           <div className="relative w-[90%] max-w-[320px] bg-[#2c1810] border-4 border-[#8b4513] rounded-xl p-6 text-center">
             {/* Close Button for Modal */}
             <button
-              onClick={() => setIsConfirmJoinModalOpen(false)}
+              onClick={handleCloseConfirmJoinModal}
               className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-[#2c1810] border-2 border-[#ffd700] 
                        flex items-center justify-center text-[#ffd700] hover:text-[#ff8c00] 
                        hover:border-[#ff8c00] transition-colors shadow-lg"
@@ -341,21 +362,26 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
 
             <div className="text-white text-sm mb-6 space-y-2">
               <p>
-                Are you sure you want to join <strong>{selectedGame.id}</strong>
+                Are you sure you want to join{" "}
+                {metadata?.name && (
+                  <span className="text-[#ffd700] font-normal">
+                    {metadata.name}
+                  </span>
+                )}
                 ?
               </p>
-              <p>
+              <p className="flex justify-center items-center mt-4">
                 Stake Amount:{" "}
-                <strong>
+                <strong className="flex items-center ml-1">
                   {(
                     selectedGame.prize / selectedGame.requiredParticipants
-                  ).toFixed(2)}{" "}
-                  USDC
+                  ).toFixed(2)}
+                  <img
+                    src="/usdc coin.svg"
+                    alt="USDC"
+                    className="w-5 h-5 ml-1"
+                  />
                 </strong>
-              </p>
-              <p>
-                Total Prize Pool:{" "}
-                <strong>{selectedGame.prize.toFixed(2)} USDC</strong>
               </p>
             </div>
 
@@ -386,10 +412,12 @@ const GameCard = ({
   game,
   onJoinClick,
   farcasterProfiles,
+  handleButtonClick,
 }: {
   game: Game;
   onJoinClick: (game: Game) => void;
   farcasterProfiles: Record<string, any>;
+  handleButtonClick: () => void;
 }) => {
   const { metadata } = useGameMetadata(game.metadataUri);
   const { address, isConnected } = useAccount();
@@ -524,9 +552,24 @@ const GameCard = ({
             <span className="text-[#ffd700] font-normal">{metadata.name}</span>
           )}
         </div>
-        <span className="text-sm">Prize: {game.prize.toFixed(2)} USD</span>
+        <span className="text-sm flex items-center">
+          {game.prize.toFixed(2)}
+          <img src="/usdc coin.svg" alt="USDC" className="w-5 h-5 ml-1" />
+        </span>
       </div>
-      <p className="text-sm mb-1">Creator: {creatorDisplayName}</p>
+      <p className="text-sm mb-1">
+        Creator:{" "}
+        <button
+          type="button"
+          onClick={() => {
+            handleButtonClick();
+            navigate(`/profile/${game.creator}`);
+          }}
+          className="underline hover:text-[#ffd700]"
+        >
+          {creatorDisplayName}
+        </button>
+      </p>
       <p className="text-xs text-gray-400 mb-1">
         Players: {game.players.length}/{game.requiredParticipants} required
       </p>
@@ -549,13 +592,21 @@ const GameCard = ({
                 const username = profile?.username ?? player;
 
                 return (
-                  <img
+                  <button
                     key={pIndex}
-                    src={pfpUrl}
-                    alt={username}
-                    title={username}
-                    className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
-                  />
+                    type="button"
+                    onClick={() => {
+                      handleButtonClick();
+                      navigate(`/profile/${player}`);
+                    }}
+                  >
+                    <img
+                      src={pfpUrl}
+                      alt={username}
+                      title={username}
+                      className="w-8 h-8 rounded-full border-2 border-[#8b4513] object-cover bg-gray-700 hover:z-10 transform hover:scale-110 transition-transform"
+                    />
+                  </button>
                 );
               })}
               {game.players.length > 4 && (

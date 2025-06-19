@@ -38,6 +38,9 @@ contract SnakeGame {
     uint256 public globalMaxParticipants;
     IERC20 public stakeToken;
 
+    // Track all rooms a player has participated in
+    mapping(address => uint256[]) private playerRooms;
+
     event RoomCreated(uint256 indexed roomId, address creator);
     event Participated(uint256 indexed roomId, address player);
     event DiceRolled(uint256 indexed roomId, address player, uint8 roll);
@@ -106,6 +109,9 @@ contract SnakeGame {
         newRoom.currentPlayerIndex = 0;
         newRoom.hasRolledSix[msg.sender] = false;
 
+        // Track room participation for the creator
+        playerRooms[msg.sender].push(roomCount);
+
         emit RoomCreated(roomCount, msg.sender);
     }
 
@@ -122,6 +128,9 @@ contract SnakeGame {
         room.lastRollSlot[msg.sender] = type(uint256).max;
         room.lastPositions[msg.sender] = 1;
         room.hasRolledSix[msg.sender] = false;
+
+        // Track room participation for the player
+        playerRooms[msg.sender].push(roomId);
 
         emit Participated(roomId, msg.sender);
 
@@ -455,5 +464,32 @@ contract SnakeGame {
     // Get total number of players on leaderboard
     function getTotalLeaderboardPlayers() external view returns (uint256) {
         return leaderboardPlayers.length;
+    }
+
+    /// @notice Get overall stats for a player
+    function getUserStats(address player) external view returns (
+        uint256 totalGames,
+        uint256 totalWins,
+        uint256 rank
+    ) {
+        totalGames = playerRooms[player].length;
+        totalWins = leaderboard[player];
+
+        uint256 playerWins = totalWins;
+        if (playerWins == 0) {
+            rank = 0;
+        } else {
+            rank = 1;
+            for (uint256 i = 0; i < leaderboardPlayers.length; i++) {
+                if (leaderboardPlayers[i] != player && leaderboard[leaderboardPlayers[i]] > playerWins) {
+                    rank++;
+                }
+            }
+        }
+    }
+
+    /// @notice Get all room ids a player has participated in
+    function getUserRooms(address player) external view returns (uint256[] memory) {
+        return playerRooms[player];
     }
 }
