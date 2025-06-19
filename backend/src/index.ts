@@ -212,7 +212,7 @@ app.get('/game/:gameId', async (req, res) => {
                 <meta property="og:image" content="${imageUrl}" />
                 
                 <!-- Farcaster Frame -->
-                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/game/${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
+                <meta name="fc:frame" content='{"version":"next","imageUrl":"${imageUrl}","button":{"title":"🎲 Join My Quest","action":{"type":"launch_frame","name":"Karma Loka","url":"${FRONTEND_URL}/explore?join=${gameId}","splashImageUrl":"${imageUrl}","splashBackgroundColor":"#954520"}}}' />
                 
                 <!-- Cache Control -->
                 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />

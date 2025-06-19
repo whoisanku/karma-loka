@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
@@ -30,8 +30,14 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address } = useAccount();
   const [activeTab, setActiveTab] = useState("all");
-  const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+
+  const handleCloseConfirmJoinModal = () => {
+    setSelectedGame(null);
+    setSearchParams({}, { replace: true });
+  };
+
   const {
     games,
     error,
@@ -41,6 +47,20 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     roomsPerPage,
     setCurrentPage,
   } = useExplore();
+
+  // Sync selectedGame with 'join' URL param
+  useEffect(() => {
+    const joinParam = searchParams.get("join");
+    if (joinParam && games.length > 0) {
+      const foundGame = games.find(
+        (game) => Number(game.id.split("#")[1]) === Number(joinParam)
+      );
+      setSelectedGame(foundGame ?? null);
+    } else {
+      setSelectedGame(null);
+    }
+  }, [searchParams, games]);
+
   const { metadata } = useGameMetadata(selectedGame?.metadataUri ?? "");
 
   const allAddressesToFetch = useMemo(() => {
@@ -103,7 +123,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const handleJoinQuestClick = (game: Game) => {
     handleButtonClick();
     setSelectedGame(game);
-    setIsConfirmJoinModalOpen(true);
+    setSearchParams({ join: game.id.split('#')[1] });
   };
 
   // Trigger participation flow
@@ -132,7 +152,6 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   // Navigate after successful participation
   useEffect(() => {
     if (participateStep === "completed" && selectedGame) {
-      setIsConfirmJoinModalOpen(false);
       const id = selectedGame.id.split("#")[1];
       navigate(`/game/${id}`);
     }
@@ -303,17 +322,17 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </div>
       </div>
       {/* Confirmation Join Modal */}
-      {isConfirmJoinModalOpen && selectedGame && (
+      {selectedGame && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-gradient-to-b from-black/80 to-[#2c1810]/90"
-            onClick={() => setIsConfirmJoinModalOpen(false)}
+            onClick={() => setSelectedGame(null)}
             aria-hidden="true"
           />
           <div className="relative w-[90%] max-w-[320px] bg-[#2c1810] border-4 border-[#8b4513] rounded-xl p-6 text-center">
             {/* Close Button for Modal */}
             <button
-              onClick={() => setIsConfirmJoinModalOpen(false)}
+              onClick={handleCloseConfirmJoinModal}
               className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-[#2c1810] border-2 border-[#ffd700] 
                        flex items-center justify-center text-[#ffd700] hover:text-[#ff8c00] 
                        hover:border-[#ff8c00] transition-colors shadow-lg"
