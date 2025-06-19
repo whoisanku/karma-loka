@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useReadContract } from "wagmi";
 import { useAccount } from "wagmi";
 import useExplore from "../../hooks/useExplore";
+import useAllGames from "../../hooks/useAllGames";
 import { useParticipate } from "../../hooks/useParticipate";
 import { useGameMetadata } from "../../hooks/useGameMetadata";
 import snakeGameContractInfo from "../../constants/snakeGameContractInfo.json";
@@ -30,6 +31,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
   const navigate = useNavigate();
   const { address } = useAccount();
   const [activeTab, setActiveTab] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [isConfirmJoinModalOpen, setIsConfirmJoinModalOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const {
@@ -41,12 +43,20 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     roomsPerPage,
     setCurrentPage,
   } = useExplore();
+  const { games: allGames, loading: loadingAllGames } = useAllGames();
+
+  const baseGames = useMemo(() => {
+    if (activeTab === "joined" || searchTerm.trim() !== "") {
+      return allGames;
+    }
+    return games;
+  }, [activeTab, searchTerm, allGames, games]);
 
   const allAddressesToFetch = useMemo(() => {
-    const players = games.flatMap((game) => game.players);
-    const creators = games.map((game) => game.creator);
+    const players = baseGames.flatMap((game) => game.players);
+    const creators = baseGames.map((game) => game.creator);
     return Array.from(new Set([...players, ...creators]));
-  }, [games]);
+  }, [baseGames]);
 
   const { profiles: farcasterProfiles } =
     useFarcasterProfiles(allAddressesToFetch);
@@ -137,18 +147,48 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
     }
   }, [participateStep, navigate, selectedGame]);
 
-  // Filter games based on activeTab and user participation
+  // Filter games based on tab, search term and user participation
   const filteredGames = useMemo(() => {
+    let result = baseGames;
     if (activeTab === "joined") {
-      return games.filter((game) =>
+      result = result.filter((game) =>
         address ? game.players.includes(address) : false
       );
     }
-    return games;
-  }, [activeTab, games, address]);
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((game) => {
+        const creatorName =
+          farcasterProfiles[game.creator]?.username ?? game.creator;
+        return (
+          game.id.toLowerCase().includes(term) ||
+          game.creator.toLowerCase().includes(term) ||
+          creatorName.toLowerCase().includes(term)
+        );
+      });
+    }
+    return result;
+  }, [
+    baseGames,
+    activeTab,
+    address,
+    searchTerm,
+    farcasterProfiles,
+  ]);
 
-  // Show error state if there's a critical error
-  if (error && games.length === 0 && !isLoading) {
+  const isExploreLoading =
+    activeTab === "joined" || searchTerm.trim() !== ""
+      ? loadingAllGames
+      : isLoading;
+
+  // Show error state if there's a critical error (only for paginated view)
+  if (
+    error &&
+    games.length === 0 &&
+    !isExploreLoading &&
+    activeTab === "all" &&
+    searchTerm.trim() === ""
+  ) {
     return (
       <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
         <div className="text-red-400 bg-red-900/20 border border-red-500/50 rounded-lg p-4">
@@ -162,10 +202,37 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
           </button>
         </div>
       </div>
+
+      <div className="relative mb-4 px-4">
+        <input
+          type="text"
+          placeholder="Search games or creators..."
+          className="w-full bg-[#1a0f09] border-2 border-[#8b4513] focus:border-[#ffd700] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-[#ffd700] transition-colors"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
+          <svg
+            className="h-5 w-5 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </div>
+      </div>
     );
   }
 
-  if (isLoading) {
+  if (isExploreLoading) {
     return (
       <div className="mx-auto mt-2 max-w-xl text-center space-y-6 pb-20">
         <div className="text-white">Loading games...</div>
@@ -199,7 +266,7 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
         </div>
       )}
 
-      {filteredGames.length === 0 && !isLoading ? (
+      {filteredGames.length === 0 && !isExploreLoading ? (
         <p className="text-white">
           {activeTab === "joined"
             ? "No joined quests found."
@@ -222,7 +289,10 @@ export default function ExplorePage({ handleButtonClick }: ExplorePageProps) {
       )}
 
       {/* Pagination Controls */}
-      {!!lastRoomId && Number(lastRoomId) > roomsPerPage && (
+      {!!lastRoomId &&
+        Number(lastRoomId) > roomsPerPage &&
+        searchTerm.trim() === "" &&
+        activeTab === "all" && (
         <div className="flex justify-center items-center space-x-4 mt-6">
           <button
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
