@@ -134,7 +134,7 @@ export default function CreateGamePage({
   };
 
   const handleShareOnFarcaster = () => {
-    const baseUrl = import.meta.env.VITE_BASE_URL;
+    const baseUrl = import.meta.env.VITE_BACKEND_URL;
     const frameUrl = `${baseUrl}/game/${createdRoomId}?v=${Date.now()}`;
     // const frameUrl = `${baseUrl}/game/2?v=${Date.now()}`;
     const text = `Join my quest "${gameName || defaultRoomName}" on Karma Loka!`;

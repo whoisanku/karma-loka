@@ -1,3 +1,4 @@
 {
-  "SnakeAndLadderModule#SnakeGame": "0x63352AAc89F7630dEEE118BD2Db76c5010d6b81B"
+  "SnakeAndLadderModule#SnakeGame": "0x63352AAc89F7630dEEE118BD2Db76c5010d6b81B",
+  "DeployMinimalForwarderModule#MyForwarder": "0xD414801D9F4daC15ACff995704D544DAA0c52c43"
 }

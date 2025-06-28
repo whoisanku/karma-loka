@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 
-contract SnakeGame {
+contract SnakeGame is ERC2771Context {
     using SafeERC20 for IERC20;
 
     struct Room {
@@ -30,6 +32,7 @@ contract SnakeGame {
 
     mapping(uint256 => Room) private roomStorage;
     uint256 public roomCount;
+    mapping(address => uint256) public nonces;
     mapping(address => uint256) public leaderboard; // Track number of wins per player
     address[] private leaderboardPlayers; // Array to track all players who have won at least once
 
@@ -52,7 +55,7 @@ contract SnakeGame {
         _;
     }
 
-    constructor(address _stakeToken) {
+    constructor(address _stakeToken, address _forwarder) ERC2771Context(_forwarder) {
         owner = msg.sender;
         stakeToken = IERC20(_stakeToken);
         globalMaxParticipants = 4; // Default max participants for any room
@@ -87,52 +90,54 @@ contract SnakeGame {
     }
 
     function createRoom(uint256 _requiredParticipants, uint256 _stakeAmount, string memory _metadataUri) external {
+        address sender = _msgSender();
         require(_requiredParticipants > 1 && _requiredParticipants <= globalMaxParticipants, "Invalid participant count for current global max");
         require(_stakeAmount > 0, "Stake required");
         require(bytes(_metadataUri).length > 0, "Metadata URI required");
-        stakeToken.safeTransferFrom(msg.sender, address(this), _stakeAmount);
+        stakeToken.safeTransferFrom(sender, address(this), _stakeAmount);
 
         roomCount++;
         Room storage newRoom = roomStorage[roomCount];
         newRoom.id = roomCount;
-        newRoom.creator = msg.sender;
+        newRoom.creator = sender;
         newRoom.requiredParticipants = _requiredParticipants;
         newRoom.maxParticipants = globalMaxParticipants;
         newRoom.stakeAmount = _stakeAmount;
         newRoom.metadataUri = _metadataUri;
 
-        newRoom.players.push(msg.sender);
-        newRoom.hasJoined[msg.sender] = true;
-        newRoom.positions[msg.sender] = 1;
-        newRoom.lastRollSlot[msg.sender] = type(uint256).max;
-        newRoom.lastPositions[msg.sender] = 1;
+        newRoom.players.push(sender);
+        newRoom.hasJoined[sender] = true;
+        newRoom.positions[sender] = 1;
+        newRoom.lastRollSlot[sender] = type(uint256).max;
+        newRoom.lastPositions[sender] = 1;
         newRoom.currentPlayerIndex = 0;
-        newRoom.hasRolledSix[msg.sender] = false;
+        newRoom.hasRolledSix[sender] = false;
 
         // Track room participation for the creator
-        playerRooms[msg.sender].push(roomCount);
+        playerRooms[sender].push(roomCount);
 
-        emit RoomCreated(roomCount, msg.sender);
+        emit RoomCreated(roomCount, sender);
     }
 
     function participate(uint256 roomId) external {
+        address sender = _msgSender();
         Room storage room = roomStorage[roomId];
         require(!room.started, "Game started");
         require(room.players.length < room.maxParticipants, "Room full");
-        require(!room.hasJoined[msg.sender], "Already joined");
-        stakeToken.safeTransferFrom(msg.sender, address(this), room.stakeAmount);
+        require(!room.hasJoined[sender], "Already joined");
+        stakeToken.safeTransferFrom(sender, address(this), room.stakeAmount);
 
-        room.players.push(msg.sender);
-        room.hasJoined[msg.sender] = true;
-        room.positions[msg.sender] = 1;
-        room.lastRollSlot[msg.sender] = type(uint256).max;
-        room.lastPositions[msg.sender] = 1;
-        room.hasRolledSix[msg.sender] = false;
+        room.players.push(sender);
+        room.hasJoined[sender] = true;
+        room.positions[sender] = 1;
+        room.lastRollSlot[sender] = type(uint256).max;
+        room.lastPositions[sender] = 1;
+        room.hasRolledSix[sender] = false;
 
         // Track room participation for the player
-        playerRooms[msg.sender].push(roomId);
+        playerRooms[sender].push(roomId);
 
-        emit Participated(roomId, msg.sender);
+        emit Participated(roomId, sender);
 
         if (room.players.length == room.requiredParticipants) {
             room.started = true;
@@ -155,23 +160,24 @@ contract SnakeGame {
     }
 
     function rollDice(uint256 roomId) public returns (uint8) {
+        address sender = _msgSender();
         Room storage room = roomStorage[roomId];
         require(room.started, "Not started");
-        require(room.hasJoined[msg.sender], "Not joined");
-        require(msg.sender == room.players[room.currentPlayerIndex], "Not your turn");
+        require(room.hasJoined[sender], "Not joined");
+        require(sender == room.players[room.currentPlayerIndex], "Not your turn");
         require(room.winner == address(0), "Game over");
-        require(!room.hasRolledSix[msg.sender], "Must use extra roll");
+        require(!room.hasRolledSix[sender], "Must use extra roll");
 
         uint256 currentSlot = getCurrentSlot(room);
-        require(room.lastRollSlot[msg.sender] < currentSlot || room.lastRollSlot[msg.sender] == type(uint256).max, "Roll not allowed in current slot");
+        require(room.lastRollSlot[sender] < currentSlot || room.lastRollSlot[sender] == type(uint256).max, "Roll not allowed in current slot");
 
-        uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender))) % 6 + 1);
-        uint8 bonus = room.prasadMeter[msg.sender] / 10;
+        uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, sender))) % 6 + 1);
+        uint8 bonus = room.prasadMeter[sender] / 10;
         uint8 finalRoll = baseRoll + bonus;
         if (finalRoll > 6) finalRoll = 6;
 
-        uint8 previousPosition = room.positions[msg.sender];
-        room.lastPositions[msg.sender] = previousPosition;
+        uint8 previousPosition = room.positions[sender];
+        room.lastPositions[sender] = previousPosition;
 
         uint8 newPos;
         uint16 potentialPos = uint16(previousPosition) + uint16(finalRoll);
@@ -182,45 +188,46 @@ contract SnakeGame {
         }
 
         newPos = applySnakeLadder(newPos);
-        room.positions[msg.sender] = newPos;
+        room.positions[sender] = newPos;
 
         if (newPos == 100) {
             // Player wins.
-            room.winner = msg.sender;
-            stakeToken.safeTransfer(msg.sender, room.stakeAmount * room.players.length);
-            if (leaderboard[msg.sender] == 0) {
-                leaderboardPlayers.push(msg.sender);
+            room.winner = sender;
+            stakeToken.safeTransfer(sender, room.stakeAmount * room.players.length);
+            if (leaderboard[sender] == 0) {
+                leaderboardPlayers.push(sender);
             }
-            leaderboard[msg.sender] += 1;
-            emit GameWon(roomId, msg.sender);
-            emit LeaderboardUpdated(msg.sender, leaderboard[msg.sender]);
+            leaderboard[sender] += 1;
+            emit GameWon(roomId, sender);
+            emit LeaderboardUpdated(sender, leaderboard[sender]);
         } else if (finalRoll == 6) {
             // Rolled a 6, gets an extra turn.
-            room.hasRolledSix[msg.sender] = true;
+            room.hasRolledSix[sender] = true;
         } else {
             // Normal move, turn passes to the next player.
-            room.lastRollSlot[msg.sender] = currentSlot;
+            room.lastRollSlot[sender] = currentSlot;
             room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
         }
         
-        room.lastRollValue[msg.sender] = finalRoll;
-        emit DiceRolled(roomId, msg.sender, finalRoll);
+        room.lastRollValue[sender] = finalRoll;
+        emit DiceRolled(roomId, sender, finalRoll);
         return finalRoll;
     }
 
     function extraRoll(uint256 roomId) public returns (uint8) {
+        address sender = _msgSender();
         Room storage room = roomStorage[roomId];
         require(room.started, "Not started");
-        require(room.hasJoined[msg.sender], "Not joined");
+        require(room.hasJoined[sender], "Not joined");
         require(room.winner == address(0), "Game over");
-        require(room.hasRolledSix[msg.sender], "No extra roll granted");
-        require(msg.sender == room.players[room.currentPlayerIndex], "Not your turn");
+        require(room.hasRolledSix[sender], "No extra roll granted");
+        require(sender == room.players[room.currentPlayerIndex], "Not your turn");
 
-        uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, "extra"))) % 6 + 1);
+        uint8 baseRoll = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, sender, "extra"))) % 6 + 1);
         uint8 finalRoll = baseRoll;
 
-        uint8 previousPosition = room.positions[msg.sender];
-        room.lastPositions[msg.sender] = previousPosition;
+        uint8 previousPosition = room.positions[sender];
+        room.lastPositions[sender] = previousPosition;
 
         uint8 newPos;
         uint16 potentialPos = uint16(previousPosition) + uint16(finalRoll);
@@ -231,26 +238,26 @@ contract SnakeGame {
         }
 
         newPos = applySnakeLadder(newPos);
-        room.positions[msg.sender] = newPos;
+        room.positions[sender] = newPos;
 
         if (newPos == 100) {
             // Player wins.
-            room.winner = msg.sender;
-            stakeToken.safeTransfer(msg.sender, room.stakeAmount * room.players.length);
-            if (leaderboard[msg.sender] == 0) {
-                leaderboardPlayers.push(msg.sender);
+            room.winner = sender;
+            stakeToken.safeTransfer(sender, room.stakeAmount * room.players.length);
+            if (leaderboard[sender] == 0) {
+                leaderboardPlayers.push(sender);
             }
-            leaderboard[msg.sender] += 1;
-            emit GameWon(roomId, msg.sender);
-            emit LeaderboardUpdated(msg.sender, leaderboard[msg.sender]);
+            leaderboard[sender] += 1;
+            emit GameWon(roomId, sender);
+            emit LeaderboardUpdated(sender, leaderboard[sender]);
         }
         
-        room.lastRollValue[msg.sender] = finalRoll;
-        emit DiceRolled(roomId, msg.sender, finalRoll);
+        room.lastRollValue[sender] = finalRoll;
+        emit DiceRolled(roomId, sender, finalRoll);
 
         uint256 currentSlot = getCurrentSlot(room);
-        room.hasRolledSix[msg.sender] = false;
-        room.lastRollSlot[msg.sender] = currentSlot;
+        room.hasRolledSix[sender] = false;
+        room.lastRollSlot[sender] = currentSlot;
         room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
 
         return finalRoll;

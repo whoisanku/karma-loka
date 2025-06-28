@@ -5,6 +5,9 @@ import fs from "fs";
 import nodeHtmlToImage from "node-html-to-image";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createPublicClient, http, createWalletClient, parseAbi } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
 
 // Load environment variables
 dotenv.config();
@@ -20,7 +23,63 @@ app.use(
     origin: "*", // Allow all origins
   })
 );
+app.use(express.json()); // Middleware to parse JSON bodies
 
+// --- Relayer Setup ---
+const {
+  BASE_SEPOLIA_RPC_URL,
+  RELAYER_PRIVATE_KEY,
+  FORWARDER_ADDRESS,
+} = process.env;
+
+// Conditionally set up the relayer endpoint
+if (BASE_SEPOLIA_RPC_URL && RELAYER_PRIVATE_KEY && FORWARDER_ADDRESS) {
+  console.log("Relayer is configured. The /relay endpoint is active.");
+
+  const forwarderAbi = parseAbi([
+    'function execute((address from, address to, uint256 value, uint256 gas, uint256 nonce, bytes data) req, bytes signature) payable returns (bool, bytes)',
+  ]);
+
+  const publicClient = createPublicClient({
+    chain: baseSepolia,
+    transport: http(BASE_SEPOLIA_RPC_URL),
+  });
+
+  const account = privateKeyToAccount(RELAYER_PRIVATE_KEY as `0x${string}`);
+
+  const walletClient = createWalletClient({
+    account,
+    chain: baseSepolia,
+    transport: http(BASE_SEPOLIA_RPC_URL),
+  });
+
+  app.post('/relay', async (req, res) => {
+    try {
+      const { request, signature } = req.body;
+      if (!request || !signature) {
+        return res.status(400).json({ error: 'Request and signature are required.' });
+      }
+
+      console.log('Relaying transaction for:', request.from);
+      const { request: contractRequest } = await publicClient.simulateContract({
+        account,
+        address: FORWARDER_ADDRESS as `0x${string}`,
+        abi: forwarderAbi,
+        functionName: 'execute',
+        args: [request, signature],
+      });
+
+      const hash = await walletClient.writeContract(contractRequest);
+      console.log(`Transaction relayed with hash: ${hash}`);
+      res.status(200).json({ hash });
+    } catch (error: any) {
+      console.error('Relayer error:', error);
+      res.status(500).json({ error: 'Failed to relay transaction.', details: error.message });
+    }
+  });
+} else {
+  console.warn("Relayer is not configured. The /relay endpoint is disabled.");
+}
 // --- Contract Setup ---
 const contractInfo = JSON.parse(
   fs.readFileSync(
